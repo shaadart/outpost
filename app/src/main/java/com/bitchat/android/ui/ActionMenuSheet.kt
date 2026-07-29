@@ -1,11 +1,14 @@
 package com.bitchat.android.ui
 
 import android.graphics.Bitmap
+import androidx.camera.compose.CameraXViewfinder
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
+import androidx.camera.core.SurfaceRequest
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.viewfinder.core.ImplementationMode
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -52,6 +55,7 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.common.BitMatrix
 import com.google.zxing.qrcode.QRCodeWriter
+import kotlinx.coroutines.flow.MutableStateFlow
 import java.util.concurrent.Executors
 
 private const val TAG = "ActionMenuSheet"
@@ -147,7 +151,7 @@ private fun ActionMenuItem(
 ) {
     Surface(
         onClick = onClick,
-        color = Color(0xFF182229),
+        color = Color(0xFF1A2330),
         shape = RoundedCornerShape(12.dp),
         modifier = Modifier
             .fillMaxWidth()
@@ -162,7 +166,7 @@ private fun ActionMenuItem(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = Color(0xFF25D366),
+                tint = Color(0xFF3B82F6),
                 modifier = Modifier.size(24.dp)
             )
             Spacer(modifier = Modifier.width(16.dp))
@@ -199,7 +203,7 @@ fun BroadcastCreationDialog(
     ) {
         Surface(
             shape = RoundedCornerShape(24.dp),
-            color = Color(0xFF1A1A2E),
+            color = Color(0xFF131A22),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(32.dp)
@@ -223,9 +227,9 @@ fun BroadcastCreationDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFF25D366),
-                        cursorColor = Color(0xFF25D366),
-                        focusedLabelColor = Color(0xFF25D366)
+                        focusedBorderColor = Color(0xFF3B82F6),
+                        cursorColor = Color(0xFF3B82F6),
+                        focusedLabelColor = Color(0xFF3B82F6)
                     )
                 )
                 Spacer(modifier = Modifier.height(24.dp))
@@ -244,7 +248,7 @@ fun BroadcastCreationDialog(
                             }
                         },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF25D366)
+                            containerColor = Color(0xFF3B82F6)
                         ),
                         shape = RoundedCornerShape(12.dp)
                     ) {
@@ -293,7 +297,7 @@ fun BroadcastQRSheet(
             Text(
                 text = channelName,
                 style = MaterialTheme.typography.bodyLarge,
-                color = Color(0xFF25D366),
+                color = Color(0xFF3B82F6),
                 textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(16.dp))
@@ -320,7 +324,7 @@ fun BroadcastQRSheet(
             Button(
                 onClick = onDismiss,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF25D366)
+                    containerColor = Color(0xFF3B82F6)
                 ),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth()
@@ -384,6 +388,9 @@ fun ScannerPanel(
     var codeScanned by remember { mutableStateOf(false) }
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
+    val surfaceRequests = remember { MutableStateFlow<SurfaceRequest?>(null) }
+    val surfaceRequest by surfaceRequests.collectAsState(initial = null)
+
     Column(modifier = modifier) {
         if (cameraPermission.status.isGranted && cameraProvider != null) {
             val executor = remember { Executors.newSingleThreadExecutor() }
@@ -394,7 +401,9 @@ fun ScannerPanel(
                     .build()
                 val barcodeScanner = BarcodeScanning.getClient(options)
 
-                val preview = Preview.Builder().build()
+                val preview = Preview.Builder().build().also {
+                    it.setSurfaceProvider { request -> surfaceRequests.value = request }
+                }
                 val analysis = ImageAnalysis.Builder()
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .build()
@@ -440,24 +449,25 @@ fun ScannerPanel(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(300.dp)
+                    .weight(1f)
                     .clip(RoundedCornerShape(16.dp))
-                    .background(Color.Black),
-                contentAlignment = Alignment.Center
+                    .background(Color.Black)
             ) {
-                Text(
-                    text = "Point at a QR code",
-                    color = Color.White.copy(alpha = 0.6f),
-                    fontSize = 14.sp
-                )
+                surfaceRequest?.let { request ->
+                    CameraXViewfinder(
+                        surfaceRequest = request,
+                        implementationMode = ImplementationMode.EMBEDDED,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
             }
         } else if (!cameraPermission.status.isGranted) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(200.dp)
+                    .weight(1f)
                     .clip(RoundedCornerShape(16.dp))
-                    .background(Color(0xFF182229)),
+                    .background(Color(0xFF1A2330)),
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -471,7 +481,7 @@ fun ScannerPanel(
                     Button(
                         onClick = { cameraPermission.launchPermissionRequest() },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF25D366)
+                            containerColor = Color(0xFF3B82F6)
                         )
                     ) {
                         Text("Grant Permission")

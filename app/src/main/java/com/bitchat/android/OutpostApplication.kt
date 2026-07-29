@@ -7,9 +7,9 @@ import com.bitchat.android.net.ArtiTorManager
 
 
 /**
- * Main application class for bitchat Android
+ * Main application class for Outpost
  */
-class BitchatApplication : Application() {
+class OutpostApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()

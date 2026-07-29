@@ -3,12 +3,15 @@ package com.bitchat.android.ui
 import android.Manifest
 import android.graphics.Bitmap
 import android.util.Log
+import androidx.camera.compose.CameraXViewfinder
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
+import androidx.camera.core.SurfaceRequest
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.viewfinder.core.ImplementationMode
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -50,6 +53,7 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.common.BitMatrix
 import com.google.zxing.qrcode.QRCodeWriter
+import kotlinx.coroutines.flow.MutableStateFlow
 import java.util.concurrent.Executors
 
 private const val TAG = "ProfileSettingsSheet"
@@ -183,7 +187,7 @@ fun ProfileSettingsSheet(
                 },
                 enabled = editingNickname.isNotBlank() && editingNickname != nickname,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF25D366),
+                    containerColor = Color(0xFF3B82F6),
                     contentColor = Color.Black
                 ),
                 shape = RoundedCornerShape(12.dp),
@@ -201,8 +205,8 @@ fun ProfileSettingsSheet(
             Button(
                 onClick = { showScanner = true },
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF202C33),
-                    contentColor = Color(0xFF25D366)
+                    containerColor = Color(0xFF131A22),
+                    contentColor = Color(0xFF3B82F6)
                 ),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth().height(48.dp)
@@ -271,13 +275,15 @@ private fun ScannerView(
         }
     }
 
+    val surfaceRequests = remember { MutableStateFlow<SurfaceRequest?>(null) }
+    val surfaceRequest by surfaceRequests.collectAsState(initial = null)
+
     Column(modifier = modifier) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .background(Color.Black),
-            contentAlignment = Alignment.Center
+                .background(Color.Black)
         ) {
             if (permissionState.status.isGranted && cameraProvider != null) {
                 val executor = remember { Executors.newSingleThreadExecutor() }
@@ -285,7 +291,9 @@ private fun ScannerView(
                 val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
                 DisposableEffect(cameraProvider) {
-                    val preview = Preview.Builder().build()
+                    val preview = Preview.Builder().build().also {
+                        it.setSurfaceProvider { request -> surfaceRequests.value = request }
+                    }
                     val analysis = ImageAnalysis.Builder()
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                         .build()
@@ -314,17 +322,13 @@ private fun ScannerView(
                     }
                 }
 
-                Text(
-                    text = "Point at a QR code",
-                    color = Color.White.copy(alpha = 0.6f),
-                    fontSize = 14.sp
-                )
-
-                Box(
-                    modifier = Modifier
-                        .size(240.dp)
-                        .border(2.dp, Color(0xFF25D366).copy(alpha = 0.8f), RoundedCornerShape(16.dp))
-                )
+                surfaceRequest?.let { request ->
+                    CameraXViewfinder(
+                        surfaceRequest = request,
+                        implementationMode = ImplementationMode.EMBEDDED,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
             } else if (!permissionState.status.isGranted) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
@@ -336,7 +340,7 @@ private fun ScannerView(
                     Button(
                         onClick = { permissionState.launchPermissionRequest() },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF25D366),
+                            containerColor = Color(0xFF3B82F6),
                             contentColor = Color.Black
                         )
                     ) {
@@ -351,7 +355,7 @@ private fun ScannerView(
             onClick = onCancel,
             modifier = Modifier.align(Alignment.CenterHorizontally)
         ) {
-            Text("Cancel", color = Color(0xFF25D366))
+            Text("Cancel", color = Color(0xFF3B82F6))
         }
     }
 }

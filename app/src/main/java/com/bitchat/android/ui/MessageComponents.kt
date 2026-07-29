@@ -155,15 +155,16 @@ fun MessageItem(
             val isSelf = message.senderPeerID == meshService.myPeerID || message.sender == currentUserNickname || message.sender.startsWith("$currentUserNickname#")
             val isOfficial = message.sender == "system" || message.isVerified
             val bubbleColor = when {
-                isSelf -> Color(0xFF25D366)
-                isOfficial -> Color(0xFF0A2B3D)
-                else -> Color(0xFF202C33)
+                isSelf -> Color(0xFF1E3A5F)
+                isOfficial -> Color(0xFF0F2B4A)
+                else -> Color(0xFF1F2937)
             }
+            val corner = 18.dp
             val bubbleShape = androidx.compose.foundation.shape.RoundedCornerShape(
-                topStart = 12.dp,
-                topEnd = 12.dp,
-                bottomStart = if (isSelf) 12.dp else 2.dp,
-                bottomEnd = if (isSelf) 2.dp else 12.dp
+                topStart = corner,
+                topEnd = corner,
+                bottomStart = if (isSelf) corner else 4.dp,
+                bottomEnd = if (isSelf) 4.dp else corner
             )
 
             Row(
@@ -177,15 +178,16 @@ fun MessageItem(
                 Surface(
                     shape = bubbleShape,
                     color = bubbleColor,
+                    tonalElevation = if (isSelf) 0.dp else 0.dp,
                     modifier = Modifier
-                        .padding(horizontal = 8.dp, vertical = 2.dp)
-                        .widthIn(max = 280.dp)
+                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                        .widthIn(max = 300.dp)
                 ) {
-                    Column(modifier = Modifier.padding(8.dp)) {
+                    Column(modifier = Modifier.padding(12.dp)) {
                         if (!isSelf && !isOfficial) {
                             Text(
                                 text = com.bitchat.android.ui.splitSuffix(message.sender).first,
-                                color = com.bitchat.android.ui.getPeerColor(message, true),
+                                color = Color(0xFF60A5FA),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(bottom = 2.dp)
@@ -193,7 +195,7 @@ fun MessageItem(
                         }
                         if (isOfficial && message.isVerified) {
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 2.dp)) {
-                                Text(text = "📢 Official Updates", color = Color(0xFF53BDEC), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text(text = "📢 Official Updates", color = Color(0xFF60A5FA), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                         // Create a custom layout that combines selectable text with clickable nickname areas
@@ -496,7 +498,7 @@ fun MessageItem(
             softWrap = true,
             overflow = TextOverflow.Visible,
             style = androidx.compose.ui.text.TextStyle(
-                color = colorScheme.onSurface
+                color = Color(0xFFF3F4F6)
             ),
             onTextLayout = { result -> textLayoutResult = result }
         )

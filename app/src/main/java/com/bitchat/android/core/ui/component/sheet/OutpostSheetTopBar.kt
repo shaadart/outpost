@@ -17,7 +17,7 @@ import com.bitchat.android.core.ui.component.button.CloseButton
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BitchatSheetTopBar(
+fun OutpostSheetTopBar(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
     backgroundAlpha: Float = 0.98f,
@@ -75,7 +75,7 @@ fun BitchatSheetCenterTopBar(
 }
 
 @Composable
-fun BitchatSheetTitle(text: String) {
+fun OutpostSheetTitle(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.titleMedium.copy(

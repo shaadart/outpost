@@ -47,7 +47,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.button.CloseButton
-import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
+import com.bitchat.android.core.ui.component.sheet.OutpostBottomSheet
 
 private data class SecurityStatusInfo(
     val text: String,
@@ -74,7 +74,7 @@ fun SecurityVerificationSheet(
     val boxColor = if (isDark) Color.White.copy(alpha = 0.06f) else Color.Black.copy(alpha = 0.06f)
     val peerHexRegex = remember { Regex("^[0-9a-fA-F]{16}$") }
 
-    BitchatBottomSheet(
+    OutpostBottomSheet(
         modifier = modifier,
         onDismissRequest = onDismiss,
     ) {

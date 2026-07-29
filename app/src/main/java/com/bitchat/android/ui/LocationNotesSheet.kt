@@ -26,9 +26,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
-import com.bitchat.android.core.ui.component.sheet.BitchatSheetTopBar
-import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
+import com.bitchat.android.core.ui.component.sheet.OutpostBottomSheet
+import com.bitchat.android.core.ui.component.sheet.OutpostSheetTopBar
+import com.bitchat.android.core.ui.component.sheet.OutpostSheetTitle
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.nostr.LocationNotesManager
@@ -106,7 +106,7 @@ fun LocationNotesSheet(
         }
     }
 
-    BitchatBottomSheet(
+    OutpostBottomSheet(
         onDismissRequest = onDismiss,
         modifier = modifier,
     ) {
@@ -168,11 +168,11 @@ fun LocationNotesSheet(
             }
 
             // TopBar (animated)
-            BitchatSheetTopBar(
+            OutpostSheetTopBar(
                 onClose = onDismiss,
                 modifier = Modifier.align(Alignment.TopCenter),
                 title = {
-                    BitchatSheetTitle(
+                    OutpostSheetTitle(
                         text = pluralStringResource(
                             id = R.plurals.location_notes_title,
                             count = count,

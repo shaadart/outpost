@@ -14,6 +14,7 @@ import androidx.camera.core.SurfaceRequest
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.viewfinder.core.ImplementationMode
 import androidx.compose.animation.Crossfade
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -55,8 +56,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -72,7 +78,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.button.CloseButton
-import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
+import com.bitchat.android.core.ui.component.sheet.OutpostBottomSheet
 import com.bitchat.android.services.VerificationService
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
@@ -109,7 +115,7 @@ fun VerificationSheet(
         viewModel.buildMyQRString(nickname, npub)
     }
 
-    BitchatBottomSheet(
+    OutpostBottomSheet(
         modifier = modifier,
         onDismissRequest = onDismiss,
     ) {
@@ -335,31 +341,54 @@ private fun ScanTabContent(
                     .weight(1f)
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(24.dp))
-                    .background(Color.Black),
-                contentAlignment = Alignment.Center
+                    .background(Color.Black)
             ) {
                 ScannerView(onScan = onScan)
-                
-                // Overlay border
-                Box(
+
+                Canvas(
                     modifier = Modifier
-                        .size(280.dp)
-                        .border(2.dp, accent.copy(alpha = 0.8f), RoundedCornerShape(16.dp))
-                )
-                
-                // Corner accents for the overlay
-                Box(modifier = Modifier.size(260.dp)) {
-                    // This could be drawn with Canvas for cooler effect, but simple border is cleaner for now
+                        .fillMaxSize()
+                        .graphicsLayer(alpha = 0.99f)
+                ) {
+                    val w = size.width
+                    val h = size.height
+                    val vfSize = minOf(w, h) * 0.65f
+                    val vfLeft = (w - vfSize) / 2f
+                    val vfTop = (h - vfSize) / 2f
+                    val radius = 16.dp.toPx()
+
+                    drawRect(Color(0x99000000))
+                    drawRoundRect(
+                        Color.Transparent,
+                        topLeft = Offset(vfLeft, vfTop),
+                        size = Size(vfSize, vfSize),
+                        cornerRadius = CornerRadius(radius),
+                        blendMode = BlendMode.Clear
+                    )
+
+                    val cornerLen = 20.dp.toPx()
+                    val strokeW = 3.dp.toPx()
+                    val accentColor = Color.White
+                    val r = vfLeft + vfSize
+                    val b = vfTop + vfSize
+
+                    drawLine(accentColor, Offset(vfLeft, vfTop + cornerLen), Offset(vfLeft, vfTop), strokeW)
+                    drawLine(accentColor, Offset(vfLeft, vfTop), Offset(vfLeft + cornerLen, vfTop), strokeW)
+                    drawLine(accentColor, Offset(r - cornerLen, vfTop), Offset(r, vfTop), strokeW)
+                    drawLine(accentColor, Offset(r, vfTop), Offset(r, vfTop + cornerLen), strokeW)
+                    drawLine(accentColor, Offset(vfLeft, b - cornerLen), Offset(vfLeft, b), strokeW)
+                    drawLine(accentColor, Offset(vfLeft, b), Offset(vfLeft + cornerLen, b), strokeW)
+                    drawLine(accentColor, Offset(r - cornerLen, b), Offset(r, b), strokeW)
+                    drawLine(accentColor, Offset(r, b), Offset(r, b - cornerLen), strokeW)
                 }
-                
+
                 Text(
                     text = stringResource(R.string.verify_scan_prompt_friend),
                     color = Color.White,
-                    
                     fontSize = 12.sp,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 32.dp)
+                        .padding(bottom = 24.dp)
                         .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
                         .padding(horizontal = 12.dp, vertical = 8.dp)
                 )

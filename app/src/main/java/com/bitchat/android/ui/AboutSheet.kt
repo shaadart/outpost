@@ -31,7 +31,7 @@ import com.bitchat.android.nostr.PoWPreferenceManager
 import androidx.compose.ui.res.stringResource
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.button.CloseButton
-import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
+import com.bitchat.android.core.ui.component.sheet.OutpostBottomSheet
 import com.bitchat.android.net.TorMode
 import com.bitchat.android.net.TorPreferenceManager
 import com.bitchat.android.net.ArtiTorManager
@@ -228,7 +228,7 @@ fun AboutSheet(
     val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
     
     if (isPresented) {
-        BitchatBottomSheet(
+        OutpostBottomSheet(
             modifier = modifier,
             onDismissRequest = onDismiss,
         ) {

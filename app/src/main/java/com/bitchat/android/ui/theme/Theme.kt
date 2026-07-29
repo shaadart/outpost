@@ -16,39 +16,58 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 
-// Colors that match WhatsApp Dark Mode aesthetics
+val BluePrimary = Color(0xFF3B82F6)
+val BluePrimaryVariant = Color(0xFF2563EB)
+val BlueAccent = Color(0xFF60A5FA)
+val BlueBackground = Color(0xFF0B0F14)
+val BlueSurface = Color(0xFF131A22)
+val BlueElevatedSurface = Color(0xFF1A2330)
+val BlueDivider = Color(0xFF273244)
+val BlueTextPrimary = Color(0xFFF3F4F6)
+val BlueTextSecondary = Color(0xFF94A3B8)
+val BlueError = Color(0xFFEF4444)
+val BlueOutgoing = Color(0xFF1E3A5F)
+val BlueIncoming = Color(0xFF1F2937)
+
 private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFF25D366),        // WhatsApp Green
-    onPrimary = Color.Black,
-    secondary = Color(0xFF128C7E),      // WhatsApp Teal Green
-    onSecondary = Color.White,
-    background = Color(0xFF111B21),     // Deep Dark
-    onBackground = Color(0xFFE9EDEF),   // Off-white text
-    surface = Color(0xFF202C33),        // Panels / Header
-    onSurface = Color(0xFFE9EDEF),      // Off-white text
-    error = Color(0xFFEF5350),
+    primary = BluePrimary,
+    onPrimary = Color.White,
+    secondary = BlueAccent,
+    onSecondary = Color(0xFF0B0F14),
+    tertiary = BluePrimaryVariant,
+    background = BlueBackground,
+    onBackground = BlueTextPrimary,
+    surface = BlueSurface,
+    onSurface = BlueTextPrimary,
+    surfaceVariant = BlueElevatedSurface,
+    onSurfaceVariant = BlueTextSecondary,
+    outline = BlueDivider,
+    error = BlueError,
     onError = Color.White
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Color(0xFF25D366),
+    primary = BluePrimary,
     onPrimary = Color.White,
-    secondary = Color(0xFF128C7E),
-    onSecondary = Color.White,
-    background = Color(0xFFEFEFEF),
-    onBackground = Color(0xFF111B21),
-    surface = Color(0xFFFFFFFF),
-    onSurface = Color(0xFF111B21),
-    error = Color(0xFFD32F2F),
+    secondary = BlueAccent,
+    onSecondary = Color(0xFF0B0F14),
+    tertiary = BluePrimaryVariant,
+    background = Color(0xFFF8FAFC),
+    onBackground = Color(0xFF0F172A),
+    surface = Color.White,
+    onSurface = Color(0xFF0F172A),
+    surfaceVariant = Color(0xFFF1F5F9),
+    onSurfaceVariant = Color(0xFF475569),
+    outline = Color(0xFFCBD5E1),
+    error = BlueError,
     onError = Color.White
 )
 
 @Composable
-fun BitchatTheme(
+fun OutpostTheme(
     darkTheme: Boolean? = null,
     content: @Composable () -> Unit
 ) {
-    // App-level override from ThemePreferenceManager
     val themePref by ThemePreferenceManager.themeFlow.collectAsState(initial = ThemePreference.System)
     val shouldUseDark = when (darkTheme) {
         true -> true

@@ -26,10 +26,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.core.ui.component.button.CloseButton
-import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
+import com.bitchat.android.core.ui.component.sheet.OutpostBottomSheet
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetCenterTopBar
-import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
-import com.bitchat.android.core.ui.component.sheet.BitchatSheetTopBar
+import com.bitchat.android.core.ui.component.sheet.OutpostSheetTitle
+import com.bitchat.android.core.ui.component.sheet.OutpostSheetTopBar
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import com.bitchat.android.nostr.GeohashAliasRegistry
@@ -82,7 +82,7 @@ fun MeshPeerListSheet(
     )
 
     if (isPresented) {
-        BitchatBottomSheet(
+        OutpostBottomSheet(
             modifier = modifier,
             onDismissRequest = onDismiss,
             sheetState = sheetState,
@@ -178,9 +178,9 @@ fun MeshPeerListSheet(
                 }
 
                 // TopBar (animated)
-                BitchatSheetTopBar(
+                OutpostSheetTopBar(
                     title = {
-                        BitchatSheetTitle(text = stringResource(id = R.string.your_network))
+                        OutpostSheetTitle(text = stringResource(id = R.string.your_network))
                     },
                     backgroundAlpha = topBarAlpha,
                     actions = {
@@ -222,7 +222,7 @@ fun MeshChannelRow(
         color = if (isSelected) {
             colorScheme.primaryContainer.copy(alpha = 0.15f)
         } else if (isOfficial) {
-            Color(0xFF2A3942) // WhatsApp dark mode tint for pinned/distinct channels
+            Color(0xFF1A2330) // WhatsApp dark mode tint for pinned/distinct channels
         } else {
             Color.Transparent
         },
@@ -859,7 +859,7 @@ fun PrivateChatSheet(
     )
 
     if (isPresented) {
-        BitchatBottomSheet(
+        OutpostBottomSheet(
             onDismissRequest = onDismiss,
             sheetState = sheetState,
         ) {

@@ -76,7 +76,7 @@ cat << 'INNEREOF' > patch.diff
 +                }
 +            }
 +            Text(
-+                text = "MeshChat",
++                text = "Outpost",
 +                style = MaterialTheme.typography.titleLarge,
 +                color = colorScheme.primary,
 +                fontWeight = FontWeight.Bold,

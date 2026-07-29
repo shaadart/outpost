@@ -37,9 +37,9 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.res.stringResource
 import com.bitchat.android.R
 import androidx.compose.ui.platform.LocalContext
-import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
-import com.bitchat.android.core.ui.component.sheet.BitchatSheetTopBar
-import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
+import com.bitchat.android.core.ui.component.sheet.OutpostBottomSheet
+import com.bitchat.android.core.ui.component.sheet.OutpostSheetTopBar
+import com.bitchat.android.core.ui.component.sheet.OutpostSheetTitle
 
 @Composable
 fun MeshTopologySection(
@@ -185,7 +185,7 @@ fun DebugSettingsSheet(
 
     if (!isPresented) return
 
-    BitchatBottomSheet(
+    OutpostBottomSheet(
         onDismissRequest = onDismiss,
     ) {
         // Mark debug sheet visible/invisible to gate heavy work
@@ -215,7 +215,7 @@ fun DebugSettingsSheet(
                 Surface(shape = RoundedCornerShape(12.dp), color = colorScheme.surfaceVariant.copy(alpha = 0.2f)) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Icon(Icons.Filled.SettingsEthernet, contentDescription = null, tint = Color(0xFF00C851))
+                            Icon(Icons.Filled.SettingsEthernet, contentDescription = null, tint = Color(0xFF60A5FA))
                             Text(stringResource(R.string.debug_verbose_logging),  fontSize = 14.sp, fontWeight = FontWeight.Medium)
                             Spacer(Modifier.weight(1f))
                             Switch(checked = verboseLogging, onCheckedChange = { manager.setVerboseLoggingEnabled(it) })
@@ -429,7 +429,7 @@ fun DebugSettingsSheet(
                             // Color palette for stacked legend
                             val palette = remember {
                                 listOf(
-                                    Color(0xFF00C851), Color(0xFF007AFF), Color(0xFFFF9500), Color(0xFFFF3B30),
+                                    Color(0xFF60A5FA), Color(0xFF007AFF), Color(0xFFFF9500), Color(0xFFFF3B30),
                                     Color(0xFF5AC8FA), Color(0xFFAF52DE), Color(0xFFFF2D55), Color(0xFF34C759),
                                     Color(0xFFFFCC00), Color(0xFF5856D6)
                                 )
@@ -746,7 +746,7 @@ fun DebugSettingsSheet(
                                             Text((res.peerID ?: stringResource(R.string.unknown)) + " • ${res.deviceAddress}",  fontSize = 12.sp)
                                             Text(stringResource(R.string.debug_rssi_fmt, res.rssi.toString()),  fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                                         }
-                                        Text(stringResource(R.string.debug_connect), color = Color(0xFF00C851),  modifier = Modifier.clickable {
+                                        Text(stringResource(R.string.debug_connect), color = Color(0xFF60A5FA),  modifier = Modifier.clickable {
                                             meshService.connectionManager.connectToAddress(res.deviceAddress)
                                         })
                                     }
@@ -781,7 +781,7 @@ fun DebugSettingsSheet(
                 item { Spacer(Modifier.height(16.dp)) }
             }
 
-            BitchatSheetTopBar(
+            OutpostSheetTopBar(
                 onClose = onDismiss,
                 modifier = Modifier.align(Alignment.TopCenter),
                 backgroundAlpha = topBarAlpha,
@@ -795,7 +795,7 @@ fun DebugSettingsSheet(
                             contentDescription = null,
                             tint = Color(0xFFFF9500)
                         )
-                        BitchatSheetTitle(
+                        OutpostSheetTitle(
                             text = stringResource(R.string.debug_tools)
                         )
                     }
@@ -845,7 +845,7 @@ private fun DrawGraphBlock(
                             val barHeight = (h * ratio).coerceAtLeast(0f)
                             if (barHeight > 0.5f) {
                                 drawRect(
-                                    color = Color(0xFF00C851),
+                                    color = Color(0xFF60A5FA),
                                     topLeft = androidx.compose.ui.geometry.Offset(x = axisPx + i * w, y = h - barHeight),
                                     size = androidx.compose.ui.geometry.Size(w, barHeight)
                                 )

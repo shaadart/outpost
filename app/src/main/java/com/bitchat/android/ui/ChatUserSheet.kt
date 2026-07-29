@@ -15,7 +15,7 @@ import androidx.compose.ui.res.stringResource
 import com.bitchat.android.R
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
-import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
+import com.bitchat.android.core.ui.component.sheet.OutpostBottomSheet
 import com.bitchat.android.model.BitchatMessage
 
 /**
@@ -45,7 +45,7 @@ fun ChatUserSheet(
     val standardGrey = if (isDark) Color(0xFF8E8E93) else Color(0xFF6D6D70) // iOS grey
     
     if (isPresented) {
-        BitchatBottomSheet(
+        OutpostBottomSheet(
             onDismissRequest = onDismiss,
             modifier = modifier
         ) {

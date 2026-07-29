@@ -6,8 +6,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.outlined.NoEncryption
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.outlined.Warning
@@ -27,68 +27,57 @@ import com.bitchat.android.core.ui.utils.singleOrTripleClickable
 
 @Composable
 fun MeshChatHeader(
-    showBack: Boolean,
-    title: String = "MeshChat",
-    onBack: () -> Unit,
-    onTripleShieldClick: () -> Unit,
-    peerCount: Int = 0,
-    modifier: Modifier = Modifier
+        showBack: Boolean,
+        title: String = "Outpost",
+        onBack: () -> Unit,
+        onTripleShieldClick: () -> Unit,
+        peerCount: Int = 0,
+        modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
 
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = colorScheme.background
-    ) {
+    Surface(modifier = modifier.fillMaxWidth(), color = colorScheme.background) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
-            ) {
+        ) {
+            Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                 if (showBack) {
-                    IconButton(
-                        onClick = onBack,
-                        modifier = Modifier.size(40.dp)
-                    ) {
+                    IconButton(onClick = onBack, modifier = Modifier.size(40.dp)) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = colorScheme.primary
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back",
+                                tint = colorScheme.primary
                         )
                     }
                 }
                 Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleLarge,
-                    color = colorScheme.onSurface,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                        text = title,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = colorScheme.onSurface,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                 )
             }
 
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 NetworkHealthBadge(peerCount = peerCount)
 
                 Icon(
-                    imageVector = Icons.Filled.Shield,
-                    contentDescription = "Panic Wipe",
-                    tint = colorScheme.onSurface.copy(alpha = 0.5f),
-                    modifier = Modifier
-                        .size(20.dp)
-                        .singleOrTripleClickable(
-                            onSingleClick = {},
-                            onTripleClick = onTripleShieldClick
-                        )
+                        imageVector = Icons.Filled.Shield,
+                        contentDescription = "Panic Wipe",
+                        tint = colorScheme.onSurface.copy(alpha = 0.5f),
+                        modifier =
+                                Modifier.size(20.dp)
+                                        .singleOrTripleClickable(
+                                                onSingleClick = {},
+                                                onTripleClick = onTripleShieldClick
+                                        )
                 )
             }
         }
@@ -96,75 +85,67 @@ fun MeshChatHeader(
 }
 
 @Composable
-fun NetworkHealthBadge(
-    peerCount: Int = 0,
-    modifier: Modifier = Modifier
-) {
+fun NetworkHealthBadge(peerCount: Int = 0, modifier: Modifier = Modifier) {
     val infiniteTransition = rememberInfiniteTransition()
-    val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        )
-    )
+    val alpha by
+            infiniteTransition.animateFloat(
+                    initialValue = 0.3f,
+                    targetValue = 1f,
+                    animationSpec =
+                            infiniteRepeatable(
+                                    animation = tween(1000, easing = LinearEasing),
+                                    repeatMode = RepeatMode.Reverse
+                            )
+            )
 
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier
-    ) {
-        Box(
-            modifier = Modifier
-                .size(8.dp)
-                .alpha(alpha)
-                .background(Color(0xFF00C851), CircleShape)
-        )
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
+        Box(modifier = Modifier.size(8.dp).alpha(alpha).background(Color(0xFF60A5FA), CircleShape))
         Spacer(modifier = Modifier.width(5.dp))
         Text(
-            text = "$peerCount Peers Nearby",
-            style = MaterialTheme.typography.bodySmall,
-            color = Color(0xFF00C851),
-            fontWeight = FontWeight.Medium,
-            fontSize = 13.sp
+                text = "$peerCount Peers Nearby",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFF60A5FA),
+                fontWeight = FontWeight.Medium,
+                fontSize = 13.sp
         )
     }
 }
 
 @Composable
-fun NoiseSessionIcon(
-    sessionState: String?,
-    modifier: Modifier = Modifier
-) {
-    val (icon, color, contentDescription) = when (sessionState) {
-        "uninitialized" -> Triple(
-            Icons.Outlined.NoEncryption,
-            Color(0x87878700),
-            stringResource(R.string.cd_ready_for_handshake)
-        )
-        "handshaking" -> Triple(
-            Icons.Outlined.Sync,
-            Color(0x87878700),
-            stringResource(R.string.cd_handshake_in_progress)
-        )
-        "established" -> Triple(
-            Icons.Filled.Lock,
-            Color(0xFFFF9500),
-            stringResource(R.string.cd_encrypted)
-        )
-        else -> {
-            Triple(
-                Icons.Outlined.Warning,
-                Color(0xFFFF4444),
-                stringResource(R.string.cd_handshake_failed)
-            )
-        }
-    }
+fun NoiseSessionIcon(sessionState: String?, modifier: Modifier = Modifier) {
+    val (icon, color, contentDescription) =
+            when (sessionState) {
+                "uninitialized" ->
+                        Triple(
+                                Icons.Outlined.NoEncryption,
+                                Color(0x87878700),
+                                stringResource(R.string.cd_ready_for_handshake)
+                        )
+                "handshaking" ->
+                        Triple(
+                                Icons.Outlined.Sync,
+                                Color(0x87878700),
+                                stringResource(R.string.cd_handshake_in_progress)
+                        )
+                "established" ->
+                        Triple(
+                                Icons.Filled.Lock,
+                                Color(0xFFFF9500),
+                                stringResource(R.string.cd_encrypted)
+                        )
+                else -> {
+                    Triple(
+                            Icons.Outlined.Warning,
+                            Color(0xFFFF4444),
+                            stringResource(R.string.cd_handshake_failed)
+                    )
+                }
+            }
 
     Icon(
-        imageVector = icon,
-        contentDescription = contentDescription,
-        modifier = modifier,
-        tint = color
+            imageVector = icon,
+            contentDescription = contentDescription,
+            modifier = modifier,
+            tint = color
     )
 }

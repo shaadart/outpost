@@ -1,8 +1,12 @@
-# MeshChat
+Built for communication beyond the internet.
 
-MeshChat is an offline-first, decentralized messaging application built for situations where conventional communication infrastructure is unavailable or unreliable.
+Secure messenger app that doesn't rely on the internet.
 
-Built on top of the BitChat networking engine from Permissionless Tech, MeshChat focuses on making secure mesh communication accessible to everyday users. It removes technical interfaces and replaces them with a familiar messaging experience that requires no configuration or networking knowledge.
+# Outpost
+
+Outpost is an offline-first, decentralized messaging application built for situations where conventional communication infrastructure is unavailable or unreliable.
+
+Built on top of the BitChat networking engine from Permissionless Tech, Outpost focuses on making secure mesh communication accessible to everyday users. It removes technical interfaces and replaces them with a familiar messaging experience that requires no configuration or networking knowledge.
 
 Messages are exchanged directly between nearby devices over Bluetooth Low Energy (BLE), forming a delay-tolerant mesh network without relying on cellular service, Wi-Fi infrastructure, or centralized servers.
 
@@ -10,7 +14,7 @@ Messages are exchanged directly between nearby devices over Bluetooth Low Energy
 
 ### Verified Broadcasts
 
-MeshChat includes a dedicated broadcast channel for trusted announcements.
+Outpost includes a dedicated broadcast channel for trusted announcements.
 
 Broadcast messages are signed with Ed25519 and verified against a trusted public key embedded in the application. Messages that fail signature verification are discarded automatically.
 
@@ -18,7 +22,7 @@ Broadcast messages are signed with Ed25519 and verified against a trusted public
 
 The application can be shared directly between Android devices using the system share sheet and Bluetooth-based transfer mechanisms.
 
-This allows MeshChat to be distributed without internet access or an app store.
+This allows Outpost to be distributed without internet access or an app store.
 
 ### Broadcast Channels
 
@@ -28,7 +32,7 @@ Each channel has its own cryptographic identity. The channel owner publishes mes
 
 ### Local Radius Chat
 
-MeshChat supports temporary public conversations within the local mesh network.
+Outpost supports temporary public conversations within the local mesh network.
 
 Messages automatically expire, making the feature suitable for short-lived coordination without accumulating long-term message history.
 
@@ -44,7 +48,7 @@ A built-in panic action permanently removes all local data, cryptographic keys, 
 
 ## Architecture
 
-MeshChat separates the user interface from the networking layer to simplify maintenance and integration with future BitChat updates.
+Outpost separates the user interface from the networking layer to simplify maintenance and integration with future BitChat updates.
 
 * User Interface: Jetpack Compose with Material Design 3
 * Networking: Bluetooth Low Energy (BLE) and Wi-Fi Aware
@@ -82,7 +86,7 @@ app/build/outputs/apk/release/
 
 ## Acknowledgements
 
-MeshChat is built on the networking, routing, fragmentation, and cryptographic foundation provided by the BitChat project from Permissionless Tech.
+Outpost is built on the networking, routing, fragmentation, and cryptographic foundation provided by the BitChat project from Permissionless Tech.
 
 This project extends that foundation with a simplified user experience and additional features for reliable peer-to-peer communication in disconnected environments.
 

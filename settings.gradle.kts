@@ -15,6 +15,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "bitchat-android"
+rootProject.name = "outpost-android"
 include(":app")
 // Using published Arti AAR; local module not included

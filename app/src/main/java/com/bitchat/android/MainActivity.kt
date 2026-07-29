@@ -26,7 +26,7 @@ import com.bitchat.android.ui.ChatScreen
 import com.bitchat.android.ui.ChatViewModel
 import com.bitchat.android.ui.OnboardingScreen
 import com.bitchat.android.ui.OrientationAwareActivity
-import com.bitchat.android.ui.theme.BitchatTheme
+import com.bitchat.android.ui.theme.OutpostTheme
 import com.bitchat.android.utils.PermissionManager
 import com.bitchat.android.wifiaware.WifiAwareController
 import com.bitchat.android.nostr.PoWPreferenceManager
@@ -119,7 +119,7 @@ class MainActivity : OrientationAwareActivity() {
                 mutableStateOf(prefs.getBoolean("onboarding_complete", false))
             }
 
-            BitchatTheme {
+            OutpostTheme {
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     containerColor = MaterialTheme.colorScheme.background

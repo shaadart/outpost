@@ -24,7 +24,7 @@ object AppShareUtils {
                 val originalApk = File(apkPath)
 
                 // 2. Define the destination file in cacheDir
-                val copiedApk = File(context.cacheDir, "bitchat-offline.apk")
+                val copiedApk = File(context.cacheDir, "outpost-offline.apk")
 
                 // 3. Copy the APK to ensure FileProvider has seamless access
                 FileInputStream(originalApk).use { input ->

@@ -38,9 +38,9 @@ import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.R
-import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
-import com.bitchat.android.core.ui.component.sheet.BitchatSheetTopBar
-import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
+import com.bitchat.android.core.ui.component.sheet.OutpostBottomSheet
+import com.bitchat.android.core.ui.component.sheet.OutpostSheetTopBar
+import com.bitchat.android.core.ui.component.sheet.OutpostSheetTitle
 
 /**
  * Location Channels Sheet for selecting geohash-based location channels
@@ -116,7 +116,7 @@ fun LocationChannelsSheet(
     val standardBlue = Color(0xFF007AFF) // iOS blue
 
     if (isPresented) {
-        BitchatBottomSheet(
+        OutpostBottomSheet(
             modifier = modifier,
             onDismissRequest = onDismiss,
             sheetState = sheetState,
@@ -508,11 +508,11 @@ fun LocationChannelsSheet(
                 }
 
                 // TopBar (animated)
-                BitchatSheetTopBar(
+                OutpostSheetTopBar(
                     onClose = onDismiss,
                     modifier = modifier.align(Alignment.TopCenter),
                     title = {
-                        BitchatSheetTitle(
+                        OutpostSheetTitle(
                             text = stringResource(R.string.location_channels_title)
                         )
                     }

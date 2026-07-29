@@ -11,9 +11,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
-import com.bitchat.android.core.ui.component.sheet.BitchatSheetTopBar
-import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
+import com.bitchat.android.core.ui.component.sheet.OutpostBottomSheet
+import com.bitchat.android.core.ui.component.sheet.OutpostSheetTopBar
+import com.bitchat.android.core.ui.component.sheet.OutpostSheetTitle
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.R
@@ -70,7 +70,7 @@ fun LocationNotesSheetPresenter(
 private fun LocationNotesAcquiringSheet(
     onDismiss: () -> Unit
 ) {
-    BitchatBottomSheet(
+    OutpostBottomSheet(
         onDismissRequest = onDismiss,
     ) {
         Column(
@@ -108,7 +108,7 @@ private fun LocationNotesErrorSheet(
     onDismiss: () -> Unit,
     locationManager: LocationChannelManager
 ) {
-    BitchatBottomSheet(
+    OutpostBottomSheet(
         onDismissRequest = onDismiss,
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
@@ -143,11 +143,11 @@ private fun LocationNotesErrorSheet(
                 }
             }
 
-            BitchatSheetTopBar(
+            OutpostSheetTopBar(
                 onClose = onDismiss,
                 modifier = Modifier.align(Alignment.TopCenter),
                 title = {
-                    BitchatSheetTitle(
+                    OutpostSheetTitle(
                         text = stringResource(R.string.cd_location_notes).uppercase()
                     )
                 }

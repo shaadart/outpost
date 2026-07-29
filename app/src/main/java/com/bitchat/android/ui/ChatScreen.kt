@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.model.BitchatMessage
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -62,12 +63,15 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val unreadChannelMessages by viewModel.unreadChannelMessages.collectAsStateWithLifecycle()
     val peerNicknames by viewModel.peerNicknames.collectAsStateWithLifecycle()
     val connectedPeers by viewModel.connectedPeers.collectAsStateWithLifecycle()
+    val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
 
     var currentView by remember { mutableStateOf(ChatViewState.INBOX) }
     var selectedConvId by remember { mutableStateOf<String?>(null) }
     var selectedConvIsPrivate by remember { mutableStateOf(false) }
     var isOfficialUpdates by remember { mutableStateOf(false) }
     var showPanicWipe by remember { mutableStateOf(false) }
+    var showLocationChannelsSheet by remember { mutableStateOf(false) }
+    var showProfileSettingsSheet by remember { mutableStateOf(false) }
     var messageText by remember { mutableStateOf(TextFieldValue("")) }
 
     val inboxItems = remember(publicMessages, privateChats, channelMessages, joinedChannels, unreadChannelMessages, unreadPrivateMessages, peerNicknames) {
@@ -127,6 +131,10 @@ fun ChatScreen(viewModel: ChatViewModel) {
         selectedConvId == null -> emptyList()
         isOfficialUpdates -> channelMessages["official_updates"] ?: emptyList()
         selectedConvIsPrivate -> privateChats[selectedConvId] ?: emptyList()
+        selectedLocationChannel is ChannelID.Location -> {
+            val geoKey = "geo:${(selectedLocationChannel as ChannelID.Location).channel.geohash}"
+            channelMessages[geoKey] ?: emptyList()
+        }
         else -> publicMessages
     }
 
@@ -138,6 +146,9 @@ fun ChatScreen(viewModel: ChatViewModel) {
         }
         if (isOfficialUpdates) {
             viewModel.switchToChannel(null)
+        }
+        if (selectedLocationChannel is ChannelID.Location) {
+            viewModel.selectLocationChannel(ChannelID.Mesh)
         }
         currentView = ChatViewState.INBOX
         selectedConvId = null
@@ -157,6 +168,10 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 selectedConvId == null -> "MeshChat"
                 isOfficialUpdates -> "\uD83D\uDCE2 CJP Official Updates"
                 selectedConvIsPrivate -> peerNicknames[selectedConvId] ?: selectedConvId ?: "Chat"
+                selectedLocationChannel is ChannelID.Location -> {
+                    val loc = selectedLocationChannel as ChannelID.Location
+                    loc.channel.displayName
+                }
                 else -> "\uD83D\uDCCD Local Radius Chatter"
             }
 
@@ -170,6 +185,9 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     if (isOfficialUpdates) {
                         viewModel.switchToChannel(null)
                     }
+                    if (selectedLocationChannel is ChannelID.Location) {
+                        viewModel.selectLocationChannel(ChannelID.Mesh)
+                    }
                     currentView = ChatViewState.INBOX
                     selectedConvId = null
                 },
@@ -177,6 +195,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     coroutineScope.launch { com.bitchat.android.utils.AppShareUtils.shareApkOffline(context) }
                 },
                 onTripleShieldClick = { showPanicWipe = true },
+                onSettingsClick = { showProfileSettingsSheet = true },
                 peerCount = connectedPeers.size
             )
 
@@ -201,6 +220,51 @@ fun ChatScreen(viewModel: ChatViewModel) {
                                 }
                                 currentView = ChatViewState.CHAT
                             })
+                        }
+
+                        item(key = "discover_zones") {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Surface(
+                                onClick = { showLocationChannelsSheet = true },
+                                color = Color(0xFF182229),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "\uD83D\uDCCD",
+                                        fontSize = 18.sp
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Discover Local Zones",
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = Color(0xFF25D366)
+                                        )
+                                        Text(
+                                            text = "Join location-based chat zones near you",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                        )
+                                    }
+                                    Text(
+                                        text = "\u2192",
+                                        color = Color(0xFF25D366),
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
                         }
                     }
                 }
@@ -238,6 +302,29 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 },
                 modifier = Modifier.zIndex(10f)
             )
+        }
+
+        ProfileSettingsSheet(
+            isPresented = showProfileSettingsSheet,
+            onDismiss = { showProfileSettingsSheet = false },
+            viewModel = viewModel
+        )
+
+        LocationChannelsSheet(
+            isPresented = showLocationChannelsSheet,
+            onDismiss = { showLocationChannelsSheet = false },
+            viewModel = viewModel
+        )
+
+        // When a location channel is selected via the sheet, dismiss sheet + navigate to chat view
+        LaunchedEffect(selectedLocationChannel) {
+            if (selectedLocationChannel is ChannelID.Location && selectedLocationChannel != ChannelID.Mesh) {
+                showLocationChannelsSheet = false
+                selectedConvId = "local_zone"
+                selectedConvIsPrivate = false
+                isOfficialUpdates = false
+                currentView = ChatViewState.CHAT
+            }
         }
     }
 }

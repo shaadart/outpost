@@ -9,6 +9,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.NoEncryption
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.outlined.Warning
@@ -33,6 +34,7 @@ fun MeshChatHeader(
     onBack: () -> Unit,
     onShareClick: () -> Unit,
     onTripleShieldClick: () -> Unit,
+    onSettingsClick: () -> Unit,
     peerCount: Int = 0,
     modifier: Modifier = Modifier
 ) {
@@ -80,6 +82,18 @@ fun MeshChatHeader(
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 NetworkHealthBadge(peerCount = peerCount)
+
+                IconButton(
+                    onClick = onSettingsClick,
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Settings,
+                        contentDescription = "Settings",
+                        tint = colorScheme.onSurface.copy(alpha = 0.6f),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
 
                 IconButton(
                     onClick = onShareClick,

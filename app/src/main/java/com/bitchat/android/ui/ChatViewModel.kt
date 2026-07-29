@@ -427,7 +427,44 @@ class ChatViewModel(
         channelManager.leaveChannel(channel)
         mesh.sendMessage("left $channel", emptyList(), null)
     }
-    
+
+    fun createBroadcastChannel(name: String): String? {
+        val channelId = "broadcast_${Random.nextInt(100000, 999999)}_${name.filter { it.isLetterOrDigit() }.take(12)}"
+        val channelTag = if (channelId.startsWith("#")) channelId else "#$channelId"
+        val joined = channelManager.joinChannel(channelTag, null, mesh.myPeerID)
+        if (joined) {
+            dataManager.addBroadcastChannel(channelTag)
+            dataManager.addChannelCreator(channelTag, mesh.myPeerID)
+            dataManager.saveChannelData(state.getJoinedChannelsValue(), state.getPasswordProtectedChannelsValue())
+            Log.d(TAG, "Created broadcast channel: $channelTag with name: $name")
+            return channelTag
+        }
+        return null
+    }
+
+    fun joinBroadcastChannel(channelId: String, channelName: String) {
+        val channelTag = if (channelId.startsWith("#")) channelId else "#$channelId"
+        val joined = channelManager.joinChannel(channelTag, null, mesh.myPeerID)
+        if (joined && dataManager.isBroadcastChannel(channelTag)) {
+            dataManager.saveChannelData(state.getJoinedChannelsValue(), state.getPasswordProtectedChannelsValue())
+            Log.d(TAG, "Joined broadcast channel: $channelTag")
+        } else if (joined) {
+            dataManager.addBroadcastChannel(channelTag)
+            dataManager.saveChannelData(state.getJoinedChannelsValue(), state.getPasswordProtectedChannelsValue())
+            Log.d(TAG, "Joined and marked broadcast channel: $channelTag")
+        }
+    }
+
+    fun isChannelCreator(channel: String): Boolean {
+        val channelTag = if (channel.startsWith("#")) channel else "#$channel"
+        return dataManager.isChannelCreator(channelTag, mesh.myPeerID)
+    }
+
+    fun isBroadcastChannel(channel: String): Boolean {
+        val channelTag = if (channel.startsWith("#")) channel else "#$channel"
+        return dataManager.isBroadcastChannel(channelTag)
+    }
+
     // MARK: - Private Chat Management (delegated)
     
     fun startPrivateChat(peerID: String) {

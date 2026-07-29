@@ -23,11 +23,13 @@ class DataManager(private val context: Context) {
     private val _favoritePeers = mutableSetOf<String>()
     private val _blockedUsers = mutableSetOf<String>()
     private val _channelMembers = mutableMapOf<String, MutableSet<String>>()
-    
+    private val _broadcastChannels = mutableSetOf<String>()
+
     val channelCreators: Map<String, String> get() = _channelCreators
     val favoritePeers: Set<String> get() = _favoritePeers
     val blockedUsers: Set<String> get() = _blockedUsers
     val channelMembers: Map<String, MutableSet<String>> get() = _channelMembers
+    val broadcastChannels: Set<String> get() = _broadcastChannels.toSet()
     
     // MARK: - Nickname Management
     
@@ -103,6 +105,10 @@ class DataManager(private val context: Context) {
             // Ignore parsing errors
         }
         
+        // Load broadcast channels
+        val savedBroadcastChannels = prefs.getStringSet("broadcast_channels", emptySet()) ?: emptySet()
+        _broadcastChannels.addAll(savedBroadcastChannels)
+        
         // Initialize channel members for loaded channels
         savedChannels.forEach { channel ->
             if (!_channelMembers.containsKey(channel)) {
@@ -118,6 +124,7 @@ class DataManager(private val context: Context) {
             putStringSet("joined_channels", joinedChannels)
             putStringSet("password_protected_channels", passwordProtectedChannels)
             putString("channel_creators", gson.toJson(_channelCreators))
+            putStringSet("broadcast_channels", _broadcastChannels)
             apply()
         }
     }
@@ -133,7 +140,19 @@ class DataManager(private val context: Context) {
     fun isChannelCreator(channel: String, peerID: String): Boolean {
         return _channelCreators[channel] == peerID
     }
-    
+
+    fun addBroadcastChannel(channel: String) {
+        _broadcastChannels.add(channel)
+    }
+
+    fun removeBroadcastChannel(channel: String) {
+        _broadcastChannels.remove(channel)
+    }
+
+    fun isBroadcastChannel(channel: String): Boolean {
+        return _broadcastChannels.contains(channel)
+    }
+
     // MARK: - Channel Members Management
     
     fun addChannelMember(channel: String, peerID: String) {
@@ -268,6 +287,7 @@ class DataManager(private val context: Context) {
         _blockedUsers.clear()
         _geohashBlockedUsers.clear()
         _channelMembers.clear()
+        _broadcastChannels.clear()
         prefs.edit().clear().apply()
     }
 }

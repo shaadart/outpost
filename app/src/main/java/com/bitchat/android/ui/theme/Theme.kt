@@ -16,30 +16,30 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 
-// Colors that match the iOS bitchat theme
+// Colors that match WhatsApp Dark Mode aesthetics
 private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFF39FF14),        // Bright green (terminal-like)
+    primary = Color(0xFF25D366),        // WhatsApp Green
     onPrimary = Color.Black,
-    secondary = Color(0xFF2ECB10),      // Darker green
-    onSecondary = Color.Black,
-    background = Color.Black,
-    onBackground = Color(0xFF39FF14),   // Green on black
-    surface = Color(0xFF111111),        // Very dark gray
-    onSurface = Color(0xFF39FF14),      // Green text
-    error = Color(0xFFFF5555),          // Red for errors
-    onError = Color.Black
+    secondary = Color(0xFF128C7E),      // WhatsApp Teal Green
+    onSecondary = Color.White,
+    background = Color(0xFF111B21),     // Deep Dark
+    onBackground = Color(0xFFE9EDEF),   // Off-white text
+    surface = Color(0xFF202C33),        // Panels / Header
+    onSurface = Color(0xFFE9EDEF),      // Off-white text
+    error = Color(0xFFEF5350),
+    onError = Color.White
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Color(0xFF008000),        // Dark green
+    primary = Color(0xFF25D366),
     onPrimary = Color.White,
-    secondary = Color(0xFF006600),      // Even darker green
+    secondary = Color(0xFF128C7E),
     onSecondary = Color.White,
-    background = Color.White,
-    onBackground = Color(0xFF008000),   // Dark green on white
-    surface = Color(0xFFF8F8F8),        // Very light gray
-    onSurface = Color(0xFF008000),      // Dark green text
-    error = Color(0xFFCC0000),          // Dark red for errors
+    background = Color(0xFFEFEFEF),
+    onBackground = Color(0xFF111B21),
+    surface = Color(0xFFFFFFFF),
+    onSurface = Color(0xFF111B21),
+    error = Color(0xFFD32F2F),
     onError = Color.White
 )
 

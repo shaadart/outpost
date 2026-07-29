@@ -109,13 +109,13 @@ fun MeshPeerListSheet(
                         }
 
                         items(
-                            items = joinedChannels.toList(),
+                            items = joinedChannels.toList().sortedBy { if (it == "official_updates") 0 else 1 },
                             key = { "channel_$it" }
                         ) { channel ->
                             val isSelected = channel == currentChannel
                             val unreadCount = unreadChannelMessages[channel] ?: 0
 
-                            ChannelRow(
+                            MeshChannelRow(
                                 channel = channel,
                                 isSelected = isSelected,
                                 unreadCount = unreadCount,
@@ -207,7 +207,7 @@ fun MeshPeerListSheet(
 }
 
 @Composable
-private fun ChannelRow(
+fun MeshChannelRow(
     channel: String,
     isSelected: Boolean,
     unreadCount: Int,
@@ -215,10 +215,14 @@ private fun ChannelRow(
     onChannelClick: () -> Unit,
     onLeaveChannel: () -> Unit,
 ) {
+    val isOfficial = channel == "official_updates"
+    
     Surface(
         onClick = onChannelClick,
         color = if (isSelected) {
             colorScheme.primaryContainer.copy(alpha = 0.15f)
+        } else if (isOfficial) {
+            Color(0xFF2A3942) // WhatsApp dark mode tint for pinned/distinct channels
         } else {
             Color.Transparent
         },
@@ -250,7 +254,7 @@ private fun ChannelRow(
                 Text(
                     text = channel,
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = FontFamily.Monospace,
+                        
                         fontSize = BASE_FONT_SIZE.sp
                     ),
                     color = if (isSelected) colorScheme.primary else colorScheme.onSurface,
@@ -262,10 +266,12 @@ private fun ChannelRow(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Leave channel button
-                CloseButton(
-                    onClick = onLeaveChannel,
-                )
+                // Leave channel button (hide for official_updates)
+                if (!isOfficial) {
+                    CloseButton(
+                        onClick = onLeaveChannel,
+                    )
+                }
             }
         }
     }
@@ -302,7 +308,7 @@ fun PeopleSection(
             Text(
                 text = stringResource(id = R.string.no_one_connected),
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    fontFamily = FontFamily.Monospace,
+                    
                     fontSize = 12.sp
                 ),
                 color = colorScheme.onSurface.copy(alpha = 0.5f),
@@ -545,7 +551,7 @@ fun PeopleSection(
 }
 
 @Composable
-private fun PeerItem(
+fun PeerItem(
     peerID: String,
     displayName: String,
     isDirect: Boolean,
@@ -640,13 +646,28 @@ private fun PeerItem(
                     )
                 }
 
+                // Circular Avatar
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(baseColor.copy(alpha = 0.2f), androidx.compose.foundation.shape.CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (baseName.isNotEmpty()) baseName.take(1).uppercase() else "?",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = baseColor,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
                 // Display name with iOS-style color and hashtag suffix support
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     // Base name with peer-specific color
                     Text(
                         text = baseName,
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            fontFamily = FontFamily.Monospace,
+                            
                             fontSize = BASE_FONT_SIZE.sp,
                             fontWeight = if (isMe) FontWeight.Bold else FontWeight.Normal
                         ),
@@ -660,7 +681,7 @@ private fun PeerItem(
                         Text(
                             text = suffix,
                             style = MaterialTheme.typography.bodyMedium.copy(
-                                fontFamily = FontFamily.Monospace,
+                                
                                 fontSize = BASE_FONT_SIZE.sp
                             ),
                             color = baseColor.copy(alpha = 0.6f)
@@ -735,7 +756,7 @@ private fun UnreadBadge(
                 style = MaterialTheme.typography.labelSmall.copy(
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace
+                    
                 ),
                 color = Color.Black // Black text on yellow background
             )
@@ -900,11 +921,8 @@ fun PrivateChatSheet(
                         onSendFileNote = { peer, channel, path ->
                             viewModel.sendFileNote(peer, channel, path)
                         },
-                        showCommandSuggestions = false,
-                        commandSuggestions = emptyList(),
                         showMentionSuggestions = false,
                         mentionSuggestions = emptyList(),
-                        onCommandSuggestionClick = { },
                         onMentionSuggestionClick = { },
                         selectedPrivatePeer = peerID,
                         currentChannel = null,
@@ -979,7 +997,7 @@ fun PrivateChatSheet(
                             text = titleText,
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
-                                fontFamily = FontFamily.Monospace
+                                
                             ),
                             color = if (isNostrPeer) Color(0xFFFF9500) else colorScheme.onSurface
                         )

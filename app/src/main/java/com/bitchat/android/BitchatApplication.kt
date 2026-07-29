@@ -5,6 +5,7 @@ import com.bitchat.android.nostr.RelayDirectory
 import com.bitchat.android.ui.theme.ThemePreferenceManager
 import com.bitchat.android.net.ArtiTorManager
 
+
 /**
  * Main application class for bitchat Android
  */

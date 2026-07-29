@@ -420,11 +420,30 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
             }
 
             // Fallback: plain text
+            var contentString = String(packet.payload, Charsets.UTF_8)
+            var isVerified = false
+            var channel: String? = null
+            
+            // Check for official updates channel interception
+            val officialResult = delegate?.processOfficialBroadcast(packet.payload)
+            if (officialResult != null) {
+                if (officialResult.first) {
+                    contentString = String(officialResult.second, Charsets.UTF_8)
+                    isVerified = true
+                    channel = "official_updates"
+                } else {
+                    Log.w(TAG, "🚫 Dropping invalid official broadcast message")
+                    return
+                }
+            }
+            
             val message = BitchatMessage(
                 id = PacketIdUtil.computeIdHex(packet).uppercase(),
                 sender = delegate?.getPeerNickname(peerID) ?: "unknown",
-                content = String(packet.payload, Charsets.UTF_8),
+                content = contentString,
+                channel = channel,
                 senderPeerID = peerID,
+                isVerified = isVerified,
                 timestamp = Date(packet.timestamp.toLong())
             )
             delegate?.onMessageReceived(message)
@@ -616,6 +635,7 @@ interface MessageHandlerDelegate {
     fun encryptForPeer(data: ByteArray, recipientPeerID: String): ByteArray?
     fun decryptFromPeer(encryptedData: ByteArray, senderPeerID: String): ByteArray?
     fun verifyEd25519Signature(signature: ByteArray, data: ByteArray, publicKey: ByteArray): Boolean
+    fun processOfficialBroadcast(payload: ByteArray): Pair<Boolean, ByteArray>?
     
     // Noise protocol operations
     fun hasNoiseSession(peerID: String): Boolean

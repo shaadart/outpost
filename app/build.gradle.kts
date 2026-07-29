@@ -20,6 +20,8 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+        
+        buildConfigField("String", "VERIFIED_PUB_KEY", "\"0000000000000000000000000000000000000000000000000000000000000000\"") // Placeholder 32-byte hex
     }
 
     dependenciesInfo {
@@ -73,6 +75,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     packaging {
         resources {

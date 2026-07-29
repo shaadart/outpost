@@ -96,7 +96,6 @@ fun FileSendingAnimation(
                 androidx.compose.material3.Text(
                     text = revealedText,
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                         color = Color.White
                     ),
                     modifier = Modifier.padding(end = 2.dp)
@@ -107,7 +106,6 @@ fun FileSendingAnimation(
                     androidx.compose.material3.Text(
                         text = stringResource(R.string.underscore),
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                             color = Color.White
                         )
                     )
@@ -149,8 +147,7 @@ private fun FileProgressBars(
     androidx.compose.material3.Text(
         text = progressString,
         style = MaterialTheme.typography.bodySmall.copy(
-            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-            color = Color(0xFF00FF7F) // Matrix green
+            color = Color(0xFF00FF7F)
         ),
         modifier = modifier
     )

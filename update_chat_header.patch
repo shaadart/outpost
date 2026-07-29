@@ -1,0 +1,65 @@
+--- app/src/main/java/com/bitchat/android/ui/ChatHeader.kt
++++ app/src/main/java/com/bitchat/android/ui/ChatHeader.kt
+@@ -19,6 +19,9 @@
+ import androidx.compose.ui.res.stringResource
+ import com.bitchat.android.R
+ import androidx.compose.ui.text.font.FontWeight
++import androidx.compose.animation.core.*
++import androidx.compose.foundation.background
++import androidx.compose.foundation.shape.CircleShape
+ import androidx.compose.ui.text.style.TextOverflow
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
+@@ -184,33 +187,31 @@
+         verticalAlignment = Alignment.CenterVertically,
+         modifier = modifier.clickable { onClick() }.padding(end = 8.dp) // Added right margin to match "bitchat" logo spacing
+     ) {
+-        Icon(
+-            imageVector = Icons.Default.Group,
+-            contentDescription = when (selectedLocationChannel) {
+-                is com.bitchat.android.geohash.ChannelID.Location -> stringResource(R.string.cd_geohash_participants)
+-                else -> stringResource(R.string.cd_connected_peers)
+-            },
+-            modifier = Modifier.size(16.dp),
+-            tint = countColor
+-        )
+-        Spacer(modifier = Modifier.width(4.dp))
++        val infiniteTransition = rememberInfiniteTransition()
++        val alpha by infiniteTransition.animateFloat(
++            initialValue = 0.3f,
++            targetValue = 1f,
++            animationSpec = infiniteRepeatable(
++                animation = tween(1000, easing = LinearEasing),
++                repeatMode = RepeatMode.Reverse
++            )
++        )
++        
++        Box(
++            modifier = Modifier
++                .size(8.dp)
++                .background(countColor.copy(alpha = alpha), CircleShape)
++        )
++        
++        Spacer(modifier = Modifier.width(6.dp))
+ 
+         Text(
+-            text = "$peopleCount",
++            text = "$peopleCount Peers Nearby",
+             style = MaterialTheme.typography.bodyMedium,
+             color = countColor,
+-            fontSize = 16.sp,
++            fontSize = 14.sp,
+             fontWeight = FontWeight.Medium
+         )
+-        
+-        if (joinedChannels.isNotEmpty()) {
+-            Text(
+-                text = stringResource(R.string.channel_count_prefix) + "${joinedChannels.size}",
+-                style = MaterialTheme.typography.bodyMedium,
+-                color = if (isConnected) Color(0xFF00C851) else Color.Red,
+-                fontSize = 16.sp,
+-                fontWeight = FontWeight.Medium
+-            )
+-        }
+     }
+ }

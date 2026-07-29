@@ -1,349 +1,448 @@
 package com.bitchat.android.ui
-// [Goose] Bridge file share events to ViewModel via dispatcher is installed in ChatScreen composition
 
-// [Goose] Installing FileShareDispatcher handler in ChatScreen to forward file sends to ViewModel
-
-
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
-import androidx.compose.foundation.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.Alignment
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.IconButton
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.bitchat.android.model.BitchatMessage
-import com.bitchat.android.ui.media.FullScreenImageViewer
+import kotlinx.coroutines.launch
 
-/**
- * Main ChatScreen - REFACTORED to use component-based architecture
- * This is now a coordinator that orchestrates the following UI components:
- * - ChatHeader: App bar, navigation, peer counter
- * - MessageComponents: Message display and formatting
- * - InputComponents: Message input and command suggestions
- * - SidebarComponents: Navigation drawer with channels and people
- * - AboutSheet: App info and password prompts
- * - ChatUIUtils: Utility functions for formatting and colors
- */
+enum class ChatViewState {
+    INBOX,
+    CHAT
+}
+
 @Composable
 fun ChatScreen(viewModel: ChatViewModel) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val colorScheme = MaterialTheme.colorScheme
-    val messages by viewModel.messages.collectAsStateWithLifecycle()
-    val connectedPeers by viewModel.connectedPeers.collectAsStateWithLifecycle()
-    val nickname by viewModel.nickname.collectAsStateWithLifecycle()
-    val selectedPrivatePeer by viewModel.selectedPrivateChatPeer.collectAsStateWithLifecycle()
-    val currentChannel by viewModel.currentChannel.collectAsStateWithLifecycle()
-    val joinedChannels by viewModel.joinedChannels.collectAsStateWithLifecycle()
-    val hasUnreadChannels by viewModel.unreadChannelMessages.collectAsStateWithLifecycle()
-    val hasUnreadPrivateMessages by viewModel.unreadPrivateMessages.collectAsStateWithLifecycle()
-    val privateChats by viewModel.privateChats.collectAsStateWithLifecycle()
-    val channelMessages by viewModel.channelMessages.collectAsStateWithLifecycle()
-    val showCommandSuggestions by viewModel.showCommandSuggestions.collectAsStateWithLifecycle()
-    val commandSuggestions by viewModel.commandSuggestions.collectAsStateWithLifecycle()
-    val showMentionSuggestions by viewModel.showMentionSuggestions.collectAsStateWithLifecycle()
-    val mentionSuggestions by viewModel.mentionSuggestions.collectAsStateWithLifecycle()
-    val showAppInfo by viewModel.showAppInfo.collectAsStateWithLifecycle()
-    val showMeshPeerListSheet by viewModel.showMeshPeerList.collectAsStateWithLifecycle()
-    val privateChatSheetPeer by viewModel.privateChatSheetPeer.collectAsStateWithLifecycle()
-    val showVerificationSheet by viewModel.showVerificationSheet.collectAsStateWithLifecycle()
-    val showSecurityVerificationSheet by viewModel.showSecurityVerificationSheet.collectAsStateWithLifecycle()
 
+    val conversations = remember { MockDataProvider.conversations }
+    var currentView by remember { mutableStateOf(ChatViewState.INBOX) }
+    var selectedConversation by remember { mutableStateOf<MockConversation?>(null) }
+    var showPanicWipe by remember { mutableStateOf(false) }
     var messageText by remember { mutableStateOf(TextFieldValue("")) }
-    var showPasswordPrompt by remember { mutableStateOf(false) }
-    var showPasswordDialog by remember { mutableStateOf(false) }
-    var passwordInput by remember { mutableStateOf("") }
-    var showLocationChannelsSheet by remember { mutableStateOf(false) }
-    var showLocationNotesSheet by remember { mutableStateOf(false) }
-    var showUserSheet by remember { mutableStateOf(false) }
-    var selectedUserForSheet by remember { mutableStateOf("") }
-    var selectedMessageForSheet by remember { mutableStateOf<BitchatMessage?>(null) }
-    var showFullScreenImageViewer by remember { mutableStateOf(false) }
-    var viewerImagePaths by remember { mutableStateOf(emptyList<String>()) }
-    var initialViewerIndex by remember { mutableStateOf(0) }
-    var forceScrollToBottom by remember { mutableStateOf(false) }
-    var isScrolledUp by remember { mutableStateOf(false) }
 
-    // Show password dialog when needed
-    LaunchedEffect(showPasswordPrompt) {
-        showPasswordDialog = showPasswordPrompt
+    BackHandler(enabled = currentView == ChatViewState.CHAT) {
+        currentView = ChatViewState.INBOX
+        selectedConversation = null
     }
 
-    val isConnected by viewModel.isConnected.collectAsStateWithLifecycle()
-    val passwordPromptChannel by viewModel.passwordPromptChannel.collectAsStateWithLifecycle()
-
-    // Get location channel info for timeline switching
-    val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
-
-    // Determine what messages to show based on current context (unified timelines)
-    // Legacy private chat timeline removed - private chats now exclusively use PrivateChatSheet
-    val displayMessages = when {
-        currentChannel != null -> channelMessages[currentChannel] ?: emptyList()
-        else -> {
-            val locationChannel = selectedLocationChannel
-            if (locationChannel is com.bitchat.android.geohash.ChannelID.Location) {
-                val geokey = "geo:${locationChannel.channel.geohash}"
-                channelMessages[geokey] ?: emptyList()
-            } else {
-                messages // Mesh timeline
-            }
-        }
-    }
-
-    // Determine whether to show media buttons (only hide in geohash location chats)
-    val showMediaButtons = when {
-        currentChannel != null -> true
-        else -> selectedLocationChannel !is com.bitchat.android.geohash.ChannelID.Location
-    }
-
-    // Use WindowInsets to handle keyboard properly
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(colorScheme.background) // Extend background to fill entire screen including status bar
+            .background(colorScheme.background)
     ) {
-        val headerHeight = 42.dp
-        
-        // Main content area that responds to keyboard/window insets
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.ime) // This handles keyboard insets
-                .windowInsetsPadding(WindowInsets.navigationBars) // Add bottom padding when keyboard is not expanded
+                .windowInsetsPadding(WindowInsets.statusBars)
         ) {
-            // Header spacer - creates exact space for the floating header (status bar + compact header)
-            Spacer(
-                modifier = Modifier
-                    .windowInsetsPadding(WindowInsets.statusBars)
-                    .height(headerHeight)
+            MeshChatHeader(
+                showBack = currentView == ChatViewState.CHAT,
+                onBack = {
+                    currentView = ChatViewState.INBOX
+                    selectedConversation = null
+                },
+                onShareClick = {
+                    coroutineScope.launch {
+                        com.bitchat.android.utils.AppShareUtils.shareApkOffline(context)
+                    }
+                },
+                onTripleShieldClick = { showPanicWipe = true }
             )
 
-            // Messages area - takes up available space, will compress when keyboard appears
-            MessagesList(
-                messages = displayMessages,
-                currentUserNickname = nickname,
-                meshService = viewModel.meshServiceFacade,
-                modifier = Modifier.weight(1f),
-                forceScrollToBottom = forceScrollToBottom,
-                onScrolledUpChanged = { isUp -> isScrolledUp = isUp },
-                onNicknameClick = { fullSenderName ->
-                    // Single click - mention user in text input
-                    val currentText = messageText.text
-                    
-                    // Extract base nickname and hash suffix from full sender name
-                    val (baseName, hashSuffix) = splitSuffix(fullSenderName)
-                    
-                    // Check if we're in a geohash channel to include hash suffix
-                    val selectedLocationChannel = viewModel.selectedLocationChannel.value
-                    val mentionText = if (selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location && hashSuffix.isNotEmpty()) {
-                        // In geohash chat - include the hash suffix from the full display name
-                        "@$baseName$hashSuffix"
-                    } else {
-                        // Regular chat - just the base nickname
-                        "@$baseName"
-                    }
-                    
-                    val newText = when {
-                        currentText.isEmpty() -> "$mentionText "
-                        currentText.endsWith(" ") -> "$currentText$mentionText "
-                        else -> "$currentText $mentionText "
-                    }
-                    
-                    messageText = TextFieldValue(
-                        text = newText,
-                        selection = TextRange(newText.length)
-                    )
-                },
-                onMessageLongPress = { message ->
-                    // Message long press - open user action sheet with message context
-                    // Extract base nickname from message sender (contains all necessary info)
-                    val (baseName, _) = splitSuffix(message.sender)
-                    selectedUserForSheet = baseName
-                    selectedMessageForSheet = message
-                    showUserSheet = true
-                },
-                onCancelTransfer = { msg ->
-                    viewModel.cancelMediaSend(msg.id)
-                },
-                onImageClick = { currentPath, allImagePaths, initialIndex ->
-                    viewerImagePaths = allImagePaths
-                    initialViewerIndex = initialIndex
-                    showFullScreenImageViewer = true
-                }
+            HorizontalDivider(
+                color = colorScheme.outline.copy(alpha = 0.3f)
             )
-            // Input area - stays at bottom
-        // Bridge file share from lower-level input to ViewModel
-    androidx.compose.runtime.LaunchedEffect(Unit) {
-        com.bitchat.android.ui.events.FileShareDispatcher.setHandler { peer, channel, path ->
-            viewModel.sendFileNote(peer, channel, path)
+
+            when (currentView) {
+                ChatViewState.INBOX -> {
+                    InboxContent(
+                        conversations = conversations,
+                        onConversationClick = { conversation ->
+                            selectedConversation = conversation
+                            currentView = ChatViewState.CHAT
+                        }
+                    )
+                }
+                ChatViewState.CHAT -> {
+                    selectedConversation?.let { conversation ->
+                        ChatContent(
+                            conversation = conversation,
+                            messageText = messageText,
+                            onMessageTextChange = { messageText = it },
+                            onSend = {
+                                if (messageText.text.trim().isNotEmpty()) {
+                                    messageText = TextFieldValue("")
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
+        if (showPanicWipe) {
+            PanicWipeOverlay(
+                onWipeComplete = {
+                    showPanicWipe = false
+                    viewModel.panicClearAllData()
+                    currentView = ChatViewState.INBOX
+                    selectedConversation = null
+                },
+                modifier = Modifier.zIndex(10f)
+            )
         }
     }
+}
 
-    ChatInputSection(
-        messageText = messageText,
-        onMessageTextChange = { newText: TextFieldValue ->
-            messageText = newText
-            viewModel.updateCommandSuggestions(newText.text)
-            viewModel.updateMentionSuggestions(newText.text)
-        },
-        onSend = {
-            if (messageText.text.trim().isNotEmpty()) {
-                viewModel.sendMessage(messageText.text.trim())
-                messageText = TextFieldValue("")
-                forceScrollToBottom = !forceScrollToBottom // Toggle to trigger scroll
+@Composable
+private fun InboxContent(
+    conversations: List<MockConversation>,
+    onConversationClick: (MockConversation) -> Unit
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(vertical = 4.dp)
+    ) {
+        conversations.forEach { conversation ->
+            item(key = conversation.id) {
+                InboxRow(
+                    conversation = conversation,
+                    onClick = { onConversationClick(conversation) }
+                )
             }
-        },
-        onSendVoiceNote = { peer, onionOrChannel, path ->
-            viewModel.sendVoiceNote(peer, onionOrChannel, path)
-        },
-        onSendImageNote = { peer, onionOrChannel, path ->
-            viewModel.sendImageNote(peer, onionOrChannel, path)
-        },
-        onSendFileNote = { peer, onionOrChannel, path ->
-            viewModel.sendFileNote(peer, onionOrChannel, path)
-        },
-        
-        showCommandSuggestions = showCommandSuggestions,
-        commandSuggestions = commandSuggestions,
-        showMentionSuggestions = showMentionSuggestions,
-        mentionSuggestions = mentionSuggestions,
-        onCommandSuggestionClick = { suggestion: CommandSuggestion ->
-                    val commandText = viewModel.selectCommandSuggestion(suggestion)
-                    messageText = TextFieldValue(
-                        text = commandText,
-                        selection = TextRange(commandText.length)
-                    )
-                },
-                onMentionSuggestionClick = { mention: String ->
-                    val mentionText = viewModel.selectMentionSuggestion(mention, messageText.text)
-                    messageText = TextFieldValue(
-                        text = mentionText,
-                        selection = TextRange(mentionText.length)
-                    )
-                },
-                selectedPrivatePeer = null,
-                currentChannel = currentChannel,
-                nickname = nickname,
-                colorScheme = colorScheme,
-                showMediaButtons = showMediaButtons
-            )
         }
+    }
+}
 
-        // Floating header - positioned absolutely at top, ignores keyboard
-        ChatFloatingHeader(
-            headerHeight = headerHeight,
-            selectedPrivatePeer = null,
-            currentChannel = currentChannel,
-            nickname = nickname,
-            viewModel = viewModel,
-            colorScheme = colorScheme,
-            onSidebarToggle = { viewModel.showMeshPeerList() },
-            onShowAppInfo = { viewModel.showAppInfo() },
-            onPanicClear = { viewModel.panicClearAllData() },
-            onLocationChannelsClick = { showLocationChannelsSheet = true },
-            onLocationNotesClick = { showLocationNotesSheet = true }
-        )
+@Composable
+private fun InboxRow(
+    conversation: MockConversation,
+    onClick: () -> Unit
+) {
+    val isPinned = conversation.type == ConversationType.VERIFIED_BROADCAST
+    val bgColor = if (isPinned) Color(0xFF182229) else Color.Transparent
+    val accentColor = when (conversation.type) {
+        ConversationType.VERIFIED_BROADCAST -> Color(0xFF53BDEC)
+        ConversationType.LOCAL_RADIUS -> Color(0xFF25D366)
+        ConversationType.DIRECT_MESSAGE -> Color(0xFF25D366)
+    }
 
-        // Divider under header - positioned after status bar + header height
-        HorizontalDivider(
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        color = bgColor
+    ) {
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.statusBars)
-                .offset(y = headerHeight)
-                .zIndex(1f),
-            color = colorScheme.outline.copy(alpha = 0.3f)
-        )
-
-        // Scroll-to-bottom floating button
-        AnimatedVisibility(
-            visible = isScrolledUp,
-            enter = slideInVertically(initialOffsetY = { it / 2 }) + fadeIn(),
-            exit = slideOutVertically(targetOffsetY = { it / 2 }) + fadeOut(),
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = 64.dp)
-                .zIndex(1.5f)
-                .windowInsetsPadding(WindowInsets.navigationBars)
-                .windowInsetsPadding(WindowInsets.ime)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Surface(
-                shape = CircleShape,
-                color = colorScheme.background,
-                tonalElevation = 3.dp,
-                shadowElevation = 6.dp,
-                border = BorderStroke(2.dp, Color(0xFF00C851))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = conversation.name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (isPinned) Color(0xFF53BDEC) else MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = conversation.lastMessage,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(
+                horizontalAlignment = Alignment.End
             ) {
-                IconButton(onClick = { forceScrollToBottom = !forceScrollToBottom }) {
-                    Icon(
-                        imageVector = Icons.Filled.ArrowDownward,
-                        contentDescription = stringResource(com.bitchat.android.R.string.cd_scroll_to_bottom),
-                        tint = Color(0xFF00C851)
-                    )
+                Text(
+                    text = conversation.timestamp,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = accentColor.copy(alpha = 0.7f),
+                    fontSize = 12.sp
+                )
+                if (conversation.unreadCount > 0) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = Color(0xFF25D366)
+                    ) {
+                        Text(
+                            text = conversation.unreadCount.toString(),
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
                 }
             }
         }
     }
+    HorizontalDivider(
+        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
+        modifier = Modifier.padding(start = 16.dp)
+    )
+}
 
-    // Full-screen image viewer - separate from other sheets to allow image browsing without navigation
-    if (showFullScreenImageViewer) {
-        FullScreenImageViewer(
-            imagePaths = viewerImagePaths,
-            initialIndex = initialViewerIndex,
-            onClose = { showFullScreenImageViewer = false }
+@Composable
+private fun ChatContent(
+    conversation: MockConversation,
+    messageText: TextFieldValue,
+    onMessageTextChange: (TextFieldValue) -> Unit,
+    onSend: () -> Unit
+) {
+    val isReadOnly = conversation.type == ConversationType.VERIFIED_BROADCAST
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        MessagesView(
+            messages = conversation.messages,
+            modifier = Modifier.weight(1f)
         )
+
+        if (!isReadOnly) {
+            ChatInputBar(
+                messageText = messageText,
+                onMessageTextChange = onMessageTextChange,
+                onSend = onSend
+            )
+        }
+    }
+}
+
+@Composable
+private fun MessagesView(
+    messages: List<MockMessage>,
+    modifier: Modifier = Modifier
+) {
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) {
+            listState.animateScrollToItem(messages.size - 1)
+        }
     }
 
-    // Dialogs and Sheets
-    ChatDialogs(
-        showPasswordDialog = showPasswordDialog,
-        passwordPromptChannel = passwordPromptChannel,
-        passwordInput = passwordInput,
-        onPasswordChange = { passwordInput = it },
-        onPasswordConfirm = {
-            if (passwordInput.isNotEmpty()) {
-                val success = viewModel.joinChannel(passwordPromptChannel!!, passwordInput)
-                if (success) {
-                    showPasswordDialog = false
-                    passwordInput = ""
+    LazyColumn(
+        state = listState,
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        items(
+            items = messages,
+            key = { "${it.sender}_${it.timestamp}_${it.content.hashCode()}" }
+        ) { message ->
+            MessageBubble(message = message)
+        }
+    }
+}
+
+@Composable
+private fun MessageBubble(message: MockMessage) {
+    val isMine = message.isMine
+    val isVerified = message.isVerified
+
+    val bubbleColor = when {
+        isVerified -> Color(0xFF0A2B3D)
+        isMine -> Color(0xFF25D366)
+        else -> Color(0xFF202C33)
+    }
+    val textColor = when {
+        isMine -> Color.White
+        else -> Color(0xFFE9EDEF)
+    }
+    val cornerShape = RoundedCornerShape(
+        topStart = 12.dp,
+        topEnd = 12.dp,
+        bottomStart = if (isMine) 12.dp else 2.dp,
+        bottomEnd = if (isMine) 2.dp else 12.dp
+    )
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = if (isMine) Alignment.End else Alignment.Start
+    ) {
+        Surface(
+            shape = cornerShape,
+            color = bubbleColor,
+            modifier = Modifier.widthIn(max = 280.dp)
+        ) {
+            Column(modifier = Modifier.padding(10.dp)) {
+                if (isVerified) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    ) {
+                        Text(
+                            text = "\uD83D\uDD12",
+                            fontSize = 12.sp
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Verified",
+                            color = Color(0xFF53BDEC),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+                if (!isMine && !isVerified) {
+                    Text(
+                        text = message.sender,
+                        color = Color(0xFF53BDEC),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(bottom = 3.dp)
+                    )
+                }
+                Text(
+                    text = message.content,
+                    color = textColor,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontSize = 15.sp
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = message.timestamp,
+                        color = textColor.copy(alpha = 0.6f),
+                        fontSize = 11.sp
+                    )
+                    if (isMine && message.deliveryStatus != null) {
+                        Spacer(modifier = Modifier.width(3.dp))
+                        val (icon, iconColor) = when (message.deliveryStatus) {
+                            DeliveryStatus.SENT -> Icons.Filled.Check to textColor.copy(alpha = 0.5f)
+                            DeliveryStatus.DELIVERED -> Icons.Filled.DoneAll to Color(0xFF53BDEC)
+                        }
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = iconColor,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
                 }
             }
-        },
-        onPasswordDismiss = {
-            showPasswordDialog = false
-            passwordInput = ""
-        },
-        showAppInfo = showAppInfo,
-        onAppInfoDismiss = { viewModel.hideAppInfo() },
-        showLocationChannelsSheet = showLocationChannelsSheet,
-        onLocationChannelsSheetDismiss = { showLocationChannelsSheet = false },
-        showLocationNotesSheet = showLocationNotesSheet,
-        onLocationNotesSheetDismiss = { showLocationNotesSheet = false },
-        showUserSheet = showUserSheet,
-        onUserSheetDismiss = { 
-            showUserSheet = false
-            selectedMessageForSheet = null // Reset message when dismissing
-        },
-        selectedUserForSheet = selectedUserForSheet,
-        selectedMessageForSheet = selectedMessageForSheet,
-        viewModel = viewModel,
-        showVerificationSheet = showVerificationSheet,
-        onVerificationSheetDismiss = viewModel::hideVerificationSheet,
-        showSecurityVerificationSheet = showSecurityVerificationSheet,
-        onSecurityVerificationSheetDismiss = viewModel::hideSecurityVerificationSheet,
-        showMeshPeerListSheet = showMeshPeerListSheet,
-        onMeshPeerListDismiss = viewModel::hideMeshPeerList,
-    )
+        }
+    }
+}
+
+@Composable
+private fun ChatInputBar(
+    messageText: TextFieldValue,
+    onMessageTextChange: (TextFieldValue) -> Unit,
+    onSend: () -> Unit
+) {
+    val colorScheme = MaterialTheme.colorScheme
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = colorScheme.background
+    ) {
+        Column {
+            HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .windowInsetsPadding(WindowInsets.navigationBars)
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(24.dp),
+                    color = Color(0xFF202C33),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    BasicTextField(
+                        value = messageText,
+                        onValueChange = onMessageTextChange,
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(
+                            color = Color(0xFFE9EDEF),
+                            fontSize = 16.sp
+                        ),
+                        cursorBrush = SolidColor(Color(0xFF25D366)),
+                        singleLine = false,
+                        maxLines = 4,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                        keyboardActions = KeyboardActions(onSend = { onSend() }),
+                        decorationBox = { innerTextField ->
+                            Box {
+                                if (messageText.text.isEmpty()) {
+                                    Text(
+                                        text = "Message",
+                                        color = Color(0xFF8696A0),
+                                        fontSize = 16.sp
+                                    )
+                                }
+                                innerTextField()
+                            }
+                        }
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(6.dp))
+
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = Color(0xFF25D366),
+                    modifier = Modifier.size(42.dp),
+                    onClick = onSend
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Send,
+                            contentDescription = "Send",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -354,11 +453,8 @@ fun ChatInputSection(
     onSendVoiceNote: (String?, String?, String) -> Unit,
     onSendImageNote: (String?, String?, String) -> Unit,
     onSendFileNote: (String?, String?, String) -> Unit,
-    showCommandSuggestions: Boolean,
-    commandSuggestions: List<CommandSuggestion>,
     showMentionSuggestions: Boolean,
     mentionSuggestions: List<String>,
-    onCommandSuggestionClick: (CommandSuggestion) -> Unit,
     onMentionSuggestionClick: (String) -> Unit,
     selectedPrivatePeer: String?,
     currentChannel: String?,
@@ -372,16 +468,6 @@ fun ChatInputSection(
     ) {
         Column {
             HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
-            // Command suggestions box
-            if (showCommandSuggestions && commandSuggestions.isNotEmpty()) {
-                CommandSuggestionsBox(
-                    suggestions = commandSuggestions,
-                    onSuggestionClick = onCommandSuggestionClick,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.2f))
-            }
-            // Mention suggestions box
             if (showMentionSuggestions && mentionSuggestions.isNotEmpty()) {
                 MentionSuggestionsBox(
                     suggestions = mentionSuggestions,
@@ -404,184 +490,5 @@ fun ChatInputSection(
                 modifier = Modifier.fillMaxWidth()
             )
         }
-    }
-}
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ChatFloatingHeader(
-    headerHeight: Dp,
-    selectedPrivatePeer: String?,
-    currentChannel: String?,
-    nickname: String,
-    viewModel: ChatViewModel,
-    colorScheme: ColorScheme,
-    onSidebarToggle: () -> Unit,
-    onShowAppInfo: () -> Unit,
-    onPanicClear: () -> Unit,
-    onLocationChannelsClick: () -> Unit,
-    onLocationNotesClick: () -> Unit
-) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val locationManager = remember { com.bitchat.android.geohash.LocationChannelManager.getInstance(context) }
-    
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .zIndex(1f)
-            .windowInsetsPadding(WindowInsets.statusBars), // Extend into status bar area
-        color = colorScheme.background // Solid background color extending into status bar
-    ) {
-        TopAppBar(
-            title = {
-                ChatHeaderContent(
-                    selectedPrivatePeer = selectedPrivatePeer,
-                    currentChannel = currentChannel,
-                    nickname = nickname,
-                    viewModel = viewModel,
-                    onBackClick = {
-                        when {
-                            selectedPrivatePeer != null -> viewModel.endPrivateChat()
-                            currentChannel != null -> viewModel.switchToChannel(null)
-                        }
-                    },
-                    onSidebarClick = onSidebarToggle,
-                    onTripleClick = onPanicClear,
-                    onShowAppInfo = onShowAppInfo,
-                    onLocationChannelsClick = onLocationChannelsClick,
-                    onLocationNotesClick = {
-                        // Ensure location is loaded before showing sheet
-                        locationManager.refreshChannels()
-                        onLocationNotesClick()
-                    }
-                )
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = Color.Transparent
-            ),
-            modifier = Modifier.height(headerHeight) // Ensure compact header height
-        )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ChatDialogs(
-    showPasswordDialog: Boolean,
-    passwordPromptChannel: String?,
-    passwordInput: String,
-    onPasswordChange: (String) -> Unit,
-    onPasswordConfirm: () -> Unit,
-    onPasswordDismiss: () -> Unit,
-    showAppInfo: Boolean,
-    onAppInfoDismiss: () -> Unit,
-    showLocationChannelsSheet: Boolean,
-    onLocationChannelsSheetDismiss: () -> Unit,
-    showLocationNotesSheet: Boolean,
-    onLocationNotesSheetDismiss: () -> Unit,
-    showUserSheet: Boolean,
-    onUserSheetDismiss: () -> Unit,
-    selectedUserForSheet: String,
-    selectedMessageForSheet: BitchatMessage?,
-    viewModel: ChatViewModel,
-    showVerificationSheet: Boolean,
-    onVerificationSheetDismiss: () -> Unit,
-    showSecurityVerificationSheet: Boolean,
-    onSecurityVerificationSheetDismiss: () -> Unit,
-    showMeshPeerListSheet: Boolean,
-    onMeshPeerListDismiss: () -> Unit,
-) {
-    val privateChatSheetPeer by viewModel.privateChatSheetPeer.collectAsStateWithLifecycle()
-
-    // Password dialog
-    PasswordPromptDialog(
-        show = showPasswordDialog,
-        channelName = passwordPromptChannel,
-        passwordInput = passwordInput,
-        onPasswordChange = onPasswordChange,
-        onConfirm = onPasswordConfirm,
-        onDismiss = onPasswordDismiss
-    )
-
-    // About sheet
-    var showDebugSheet by remember { mutableStateOf(false) }
-    AboutSheet(
-        isPresented = showAppInfo,
-        onDismiss = onAppInfoDismiss,
-        onShowDebug = { showDebugSheet = true }
-    )
-    if (showDebugSheet) {
-        com.bitchat.android.ui.debug.DebugSettingsSheet(
-            isPresented = showDebugSheet,
-            onDismiss = { showDebugSheet = false },
-            meshService = viewModel.meshService
-        )
-    }
-    
-    // Location channels sheet
-    if (showLocationChannelsSheet) {
-        LocationChannelsSheet(
-            isPresented = showLocationChannelsSheet,
-            onDismiss = onLocationChannelsSheetDismiss,
-            viewModel = viewModel
-        )
-    }
-    
-    // Location notes sheet (extracted to separate presenter)
-    if (showLocationNotesSheet) {
-        LocationNotesSheetPresenter(
-            viewModel = viewModel,
-            onDismiss = onLocationNotesSheetDismiss
-        )
-    }
-    
-    // User action sheet
-    if (showUserSheet) {
-        ChatUserSheet(
-            isPresented = showUserSheet,
-            onDismiss = onUserSheetDismiss,
-            targetNickname = selectedUserForSheet,
-            selectedMessage = selectedMessageForSheet,
-            viewModel = viewModel
-        )
-    }
-    // MeshPeerList sheet (network view)
-    if (showMeshPeerListSheet){
-        MeshPeerListSheet(
-            isPresented = showMeshPeerListSheet,
-            viewModel = viewModel,
-            onDismiss = onMeshPeerListDismiss,
-            onShowVerification = {
-                onMeshPeerListDismiss()
-                viewModel.showVerificationSheet(fromSidebar = true)
-            }
-        )
-    }
-
-    if (showVerificationSheet) {
-        VerificationSheet(
-            isPresented = showVerificationSheet,
-            onDismiss = onVerificationSheetDismiss,
-            viewModel = viewModel
-        )
-    }
-
-    if (showSecurityVerificationSheet) {
-        SecurityVerificationSheet(
-            isPresented = showSecurityVerificationSheet,
-            onDismiss = onSecurityVerificationSheetDismiss,
-            viewModel = viewModel
-        )
-    }
-
-    if (privateChatSheetPeer != null) {
-        PrivateChatSheet(
-            isPresented = true,
-            peerID = privateChatSheetPeer!!,
-            viewModel = viewModel,
-            onDismiss = {
-                viewModel.hidePrivateChatSheet()
-                viewModel.endPrivateChat()
-            }
-        )
     }
 }

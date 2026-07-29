@@ -1,0 +1,24 @@
+#!/bin/bash
+cat << 'INNEREOF' > patch_vars.diff
+--- app/src/main/java/com/bitchat/android/ui/ChatScreen.kt
++++ app/src/main/java/com/bitchat/android/ui/ChatScreen.kt
+@@ -58,6 +58,8 @@
+     
+     val joinedChannels by viewModel.joinedChannels.collectAsStateWithLifecycle()
+     val hasUnreadChannels by viewModel.unreadChannelMessages.collectAsStateWithLifecycle()
++    val peerNicknames by viewModel.peerNicknames.collectAsStateWithLifecycle()
++    val peerRSSI by viewModel.peerRSSI.collectAsStateWithLifecycle()
+ 
+     val showSecurityVerificationSheet by viewModel.showSecurityVerificationSheet.collectAsStateWithLifecycle()
+     var showProfileSettingsSheet by remember { mutableStateOf(false) }
+@@ -155,7 +157,7 @@
+                         items = joinedChannels.toList().sortedBy { if (it == "official_updates") 0 else 1 },
+                         key = { "channel_$it" }
+                     ) { channel ->
+-                        val unreadCount = unreadChannelMessages[channel] ?: 0
++                        val unreadCount = hasUnreadChannels[channel] ?: 0
+                         MeshChannelRow(
+                             channel = channel,
+                             isSelected = false,
+INNEREOF
+patch -p0 < patch_vars.diff

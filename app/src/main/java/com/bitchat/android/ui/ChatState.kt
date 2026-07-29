@@ -17,13 +17,7 @@ import kotlinx.coroutines.flow.stateIn
  * Centralized state definitions and data classes for the chat system
  */
 
-// Command suggestion data class
-data class CommandSuggestion(
-    val command: String,
-    val aliases: List<String> = emptyList(),
-    val syntax: String? = null,
-    val description: String
-)
+
 
 /**
  * Contains all the observable state for the chat system
@@ -77,12 +71,7 @@ class ChatState(
     private val _passwordPromptChannel = MutableStateFlow<String?>(null)
     val passwordPromptChannel: StateFlow<String?> = _passwordPromptChannel.asStateFlow()
 
-    // Command autocomplete
-    private val _showCommandSuggestions = MutableStateFlow(false)
-    val showCommandSuggestions: StateFlow<Boolean> = _showCommandSuggestions.asStateFlow()
-    
-    private val _commandSuggestions = MutableStateFlow<List<CommandSuggestion>>(emptyList())
-    val commandSuggestions: StateFlow<List<CommandSuggestion>> = _commandSuggestions.asStateFlow()
+
     
     // Mention autocomplete
     private val _showMentionSuggestions = MutableStateFlow(false)
@@ -180,8 +169,7 @@ class ChatState(
     fun getPasswordProtectedChannelsValue() = _passwordProtectedChannels.value
     fun getShowPasswordPromptValue() = _showPasswordPrompt.value
     fun getPasswordPromptChannelValue() = _passwordPromptChannel.value
-    fun getShowCommandSuggestionsValue() = _showCommandSuggestions.value
-    fun getCommandSuggestionsValue() = _commandSuggestions.value
+
     fun getShowMentionSuggestionsValue() = _showMentionSuggestions.value
     fun getMentionSuggestionsValue() = _mentionSuggestions.value
     fun getFavoritePeersValue() = _favoritePeers.value
@@ -257,13 +245,7 @@ class ChatState(
         _passwordPromptChannel.value = channel
     }
 
-    fun setShowCommandSuggestions(show: Boolean) {
-        _showCommandSuggestions.value = show
-    }
-    
-    fun setCommandSuggestions(suggestions: List<CommandSuggestion>) {
-        _commandSuggestions.value = suggestions
-    }
+
     
     fun setShowMentionSuggestions(show: Boolean) {
         _showMentionSuggestions.value = show

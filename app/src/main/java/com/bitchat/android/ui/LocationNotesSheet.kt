@@ -238,7 +238,7 @@ private fun LocationNotesHeader(
             if (name.isNotEmpty()) {
                 Text(
                     text = name,
-                    fontFamily = FontFamily.Monospace,
+                    
                     fontSize = 12.sp,
                     color = accentGreen
                 )
@@ -249,7 +249,7 @@ private fun LocationNotesHeader(
         // Description
         Text(
             text = stringResource(R.string.location_notes_description),
-            fontFamily = FontFamily.Monospace,
+            
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
         )
@@ -259,7 +259,7 @@ private fun LocationNotesHeader(
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = stringResource(R.string.location_notes_relays_unavailable),
-                fontFamily = FontFamily.Monospace,
+                
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
             )
@@ -290,7 +290,7 @@ private fun NoteRow(note: LocationNotesManager.Note) {
         ) {
             Text(
                 text = "@$baseName",
-                fontFamily = FontFamily.Monospace,
+                
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface
@@ -299,7 +299,7 @@ private fun NoteRow(note: LocationNotesManager.Note) {
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = ts,
-                    fontFamily = FontFamily.Monospace,
+                    
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
@@ -311,7 +311,7 @@ private fun NoteRow(note: LocationNotesManager.Note) {
         // Second row: content
         Text(
             text = note.content,
-            fontFamily = FontFamily.Monospace,
+            
             fontSize = 14.sp,
             color = MaterialTheme.colorScheme.onSurface
         )
@@ -330,7 +330,7 @@ private fun NoRelaysRow(onRetry: () -> Unit) {
     ) {
         Text(
             text = stringResource(R.string.location_notes_no_relays_title),
-            fontFamily = FontFamily.Monospace,
+            
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface
@@ -338,14 +338,14 @@ private fun NoRelaysRow(onRetry: () -> Unit) {
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = stringResource(R.string.location_notes_no_relays_desc),
-            fontFamily = FontFamily.Monospace,
+            
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = stringResource(R.string.retry),
-            fontFamily = FontFamily.Monospace,
+            
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.clickable(onClick = onRetry)
@@ -372,7 +372,7 @@ private fun LoadingRow() {
         Spacer(modifier = Modifier.width(10.dp))
         Text(
             text = stringResource(R.string.loading_location_notes),
-            fontFamily = FontFamily.Monospace,
+            
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
         )
@@ -391,7 +391,7 @@ private fun EmptyRow() {
     ) {
         Text(
             text = stringResource(R.string.location_notes_empty_title),
-            fontFamily = FontFamily.Monospace,
+            
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface
@@ -399,7 +399,7 @@ private fun EmptyRow() {
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = stringResource(R.string.location_notes_empty_desc),
-            fontFamily = FontFamily.Monospace,
+            
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
         )
@@ -427,7 +427,7 @@ private fun ErrorRow(message: String, onDismiss: () -> Unit) {
             Spacer(modifier = Modifier.width(6.dp))
             Text(
                 text = message,
-                fontFamily = FontFamily.Monospace,
+                
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -435,7 +435,7 @@ private fun ErrorRow(message: String, onDismiss: () -> Unit) {
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = stringResource(R.string.dismiss),
-            fontFamily = FontFamily.Monospace,
+            
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.clickable(onClick = onDismiss)
@@ -469,7 +469,7 @@ private fun LocationNotesInputSection(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "@$baseName",
-                    fontFamily = FontFamily.Monospace,
+                    
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = colorScheme.onSurface
@@ -493,7 +493,7 @@ private fun LocationNotesInputSection(
                 onValueChange = onDraftChange,
                 textStyle = MaterialTheme.typography.bodyMedium.copy(
                     color = colorScheme.primary,
-                    fontFamily = FontFamily.Monospace
+                    
                 ),
                 cursorBrush = androidx.compose.ui.graphics.SolidColor(colorScheme.primary),
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
@@ -510,7 +510,7 @@ private fun LocationNotesInputSection(
                 Text(
                     text = stringResource(R.string.location_notes_input_placeholder),
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = FontFamily.Monospace
+                        
                     ),
                     color = colorScheme.onSurface.copy(alpha = 0.5f),
                     modifier = Modifier.fillMaxWidth()

@@ -264,6 +264,10 @@ class MeshCore(
                 return encryptionService.verifyEd25519Signature(signature, data, publicKey)
             }
 
+            override fun processOfficialBroadcast(payload: ByteArray): Pair<Boolean, ByteArray>? {
+                return securityManager.processOfficialBroadcast(payload)
+            }
+
             override fun hasNoiseSession(peerID: String): Boolean {
                 return encryptionService.hasEstablishedSession(peerID)
             }

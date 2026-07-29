@@ -1,0 +1,88 @@
+--- app/src/main/java/com/bitchat/android/ui/ChatHeader.kt
++++ app/src/main/java/com/bitchat/android/ui/ChatHeader.kt
+@@ -235,16 +235,21 @@
+     val colorScheme = MaterialTheme.colorScheme
+ 
+     when {
+-        currentChannel != null -> {
++        currentChannel != null && currentChannel != "official_updates" -> {
+             // Channel header
+-            ChannelHeader(
+-                channel = currentChannel,
+-                onBackClick = onBackClick,
+-                onLeaveChannel = { viewModel.leaveChannel(currentChannel) },
+-                onSidebarClick = onSidebarClick
++            MainHeader(
++                nickname = nickname,
++                onNicknameChange = viewModel::setNickname,
++                onTitleClick = onShowAppInfo,
++                onTripleTitleClick = onTripleClick,
++                onSidebarClick = onSidebarClick,
++                onLocationChannelsClick = onLocationChannelsClick,
++                onLocationNotesClick = onLocationNotesClick,
++                onProfileSettingsClick = onProfileSettingsClick,
++                onShareAppClick = onShareAppClick,
++                viewModel = viewModel,
++                showBackButton = true,
++                onBackClick = onBackClick
+             )
+         }
+         else -> {
+@@ -257,7 +262,9 @@
+                 onLocationChannelsClick = onLocationChannelsClick,
+                 onLocationNotesClick = onLocationNotesClick,
+                 onProfileSettingsClick = onProfileSettingsClick,
+                 onShareAppClick = onShareAppClick,
+-                viewModel = viewModel
++                viewModel = viewModel,
++                showBackButton = false,
++                onBackClick = {}
+             )
+         }
+@@ -339,7 +346,9 @@
+     onLocationNotesClick: () -> Unit,
+     onProfileSettingsClick: () -> Unit,
+     onShareAppClick: () -> Unit,
+-    viewModel: ChatViewModel
++    viewModel: ChatViewModel,
++    showBackButton: Boolean = false,
++    onBackClick: () -> Unit = {}
+ ) {
+     val colorScheme = MaterialTheme.colorScheme
+     val connectedPeers by viewModel.connectedPeers.collectAsStateWithLifecycle()
+@@ -364,15 +373,26 @@
+         Row(
+             modifier = Modifier.fillMaxHeight(),
+             verticalAlignment = Alignment.CenterVertically
+         ) {
+-            Text(
+-                text = stringResource(R.string.app_brand),
+-                style = MaterialTheme.typography.headlineSmall,
+-                color = colorScheme.primary,
+-                modifier = Modifier.singleOrTripleClickable(
+-                    onSingleClick = onTitleClick,
+-                    onTripleClick = onTripleTitleClick
+-                )
+-            )
++            if (showBackButton) {
++                IconButton(onClick = onBackClick, modifier = Modifier.padding(end = 4.dp)) {
++                    Icon(
++                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
++                        contentDescription = "Back",
++                        tint = colorScheme.primary
++                    )
++                }
++            }
++            Text(
++                text = "MeshChat",
++                style = MaterialTheme.typography.titleLarge,
++                color = colorScheme.primary,
++                fontWeight = FontWeight.Bold,
++                modifier = Modifier.singleOrTripleClickable(
++                    onSingleClick = onTitleClick,
++                    onTripleClick = onTripleTitleClick
++                )
++            )
+         }
+         
+         // Right section with location channels button and peer counter

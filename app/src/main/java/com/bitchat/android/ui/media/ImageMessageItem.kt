@@ -61,7 +61,7 @@ fun ImageMessageItem(
         var headerLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
         Text(
             text = headerText,
-            fontFamily = FontFamily.Monospace,
+            
             color = colorScheme.onSurface,
             modifier = Modifier.pointerInput(message.id) {
                 detectTapGestures(onTap = { pos ->
@@ -145,7 +145,7 @@ fun ImageMessageItem(
                 }
             }
         } else {
-            Text(text = stringResource(com.bitchat.android.R.string.image_unavailable), fontFamily = FontFamily.Monospace, color = Color.Gray)
+            Text(text = stringResource(com.bitchat.android.R.string.image_unavailable),  color = Color.Gray)
         }
     }
 }

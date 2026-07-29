@@ -184,6 +184,33 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
     }
     
     /**
+     * Process potential official broadcast message payload.
+     * Returns null if not an official broadcast format.
+     * Returns Pair(isValid, strippedPayload) if it matches the format.
+     */
+    fun processOfficialBroadcast(payload: ByteArray): Pair<Boolean, ByteArray>? {
+        val magic = "OFFICIAL_V1:".toByteArray(Charsets.UTF_8)
+        if (payload.size <= magic.size + 64) return null
+        
+        // Check magic prefix
+        for (i in magic.indices) {
+            if (payload[i] != magic[i]) return null
+        }
+        
+        val signature = payload.sliceArray(magic.size until magic.size + 64)
+        val actualPayload = payload.sliceArray(magic.size + 64 until payload.size)
+        
+        try {
+            val pubKey = com.bitchat.android.mesh.MeshPacketUtils.hexStringToByteArray(com.bitchat.android.BuildConfig.VERIFIED_PUB_KEY)
+            val isValid = encryptionService.verifyEd25519Signature(signature, actualPayload, pubKey)
+            return Pair(isValid, actualPayload)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to verify official broadcast: ${e.message}")
+            return Pair(false, actualPayload)
+        }
+    }
+    
+    /**
      * Encrypt payload for specific peer
      */
     fun encryptForPeer(data: ByteArray, recipientPeerID: String): ByteArray? {

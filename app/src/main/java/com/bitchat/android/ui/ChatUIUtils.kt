@@ -65,61 +65,10 @@ fun formatMessageAsAnnotatedString(
         // Split sender into base name and hashtag suffix
         val (baseName, suffix) = splitSuffix(message.sender)
         
-        // Sender prefix "<@"
-        builder.pushStyle(SpanStyle(
-            color = baseColor,
-            fontSize = BASE_FONT_SIZE.sp,
-            fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Medium
-        ))
-        builder.append("<@")
-        builder.pop()
-        
-        // Base name (clickable)
-        builder.pushStyle(SpanStyle(
-            color = baseColor,
-            fontSize = BASE_FONT_SIZE.sp,
-            fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Medium
-        ))
-        val nicknameStart = builder.length
-        val truncatedBase = truncateNickname(baseName)
-        builder.append(truncatedBase)
-        val nicknameEnd = builder.length
-        
-        // Add click annotation for nickname (store canonical sender name with hash if available)
-        if (!isSelf) {
-            builder.addStringAnnotation(
-                tag = "nickname_click",
-                annotation = (message.originalSender ?: message.sender),
-                start = nicknameStart,
-                end = nicknameEnd
-            )
-        }
-        builder.pop()
-        
-        // Hashtag suffix in lighter color (iOS style)
-        if (suffix.isNotEmpty()) {
-            builder.pushStyle(SpanStyle(
-                color = baseColor.copy(alpha = 0.6f),
-                fontSize = BASE_FONT_SIZE.sp,
-                fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Medium
-            ))
-            builder.append(suffix)
-            builder.pop()
-        }
-        
-        // Sender suffix "> "
-        builder.pushStyle(SpanStyle(
-            color = baseColor,
-            fontSize = BASE_FONT_SIZE.sp,
-            fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Medium
-        ))
-        builder.append("> ")
-        builder.pop()
-        
         // Message content with iOS-style hashtag and mention highlighting
         appendIOSFormattedContent(builder, message.content, message.mentions, currentUserNickname, baseColor, isSelf, isDark)
         
-        // iOS-style timestamp at the END (smaller, grey)
+        // Timestamp in bottom corner (smaller, grey)
         // Timestamp (and optional PoW badge)
         builder.pushStyle(SpanStyle(
             color = Color.Gray.copy(alpha = 0.7f),

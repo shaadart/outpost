@@ -1,0 +1,42 @@
+#!/bin/bash
+sed -i 's/Icons.AutoMirrored.Filled.ArrowBack/Icons.Filled.ArrowBack/g' app/src/main/java/com/bitchat/android/ui/ChatHeader.kt
+
+cat << 'INNEREOF' > patch_screen.diff
+--- app/src/main/java/com/bitchat/android/ui/ChatScreen.kt
++++ app/src/main/java/com/bitchat/android/ui/ChatScreen.kt
+@@ -123,12 +123,6 @@
+         else -> selectedLocationChannel !is com.bitchat.android.geohash.ChannelID.Location
+     }
+ 
+-    val joinedChannels by viewModel.joinedChannels.collectAsStateWithLifecycle()
+-    val connectedPeers by viewModel.connectedPeers.collectAsStateWithLifecycle()
+-    val unreadChannelMessages by viewModel.unreadChannelMessages.collectAsStateWithLifecycle()
+-    val peerNicknames by viewModel.peerNicknames.collectAsStateWithLifecycle()
+-    val peerRSSI by viewModel.peerRSSI.collectAsStateWithLifecycle()
+-
+     // Use WindowInsets to handle keyboard properly
+     Box(
+         modifier = Modifier
+@@ -172,17 +166,11 @@
+                     item {
+                         PeopleSection(
+                             modifier = Modifier.padding(top = 16.dp),
+-                            connectedPeers = connectedPeers,
+-                            colorScheme = colorScheme,
+-                            viewModel = viewModel,
+-                            onTapPerson = { peerID ->
+-                                viewModel.showPrivateChatSheet(peerID)
+-                            },
+-                            onToggleFavorite = { peerID ->
+-                                viewModel.toggleFavorite(peerID)
+-                            },
++                            connectedPeers = connectedPeers.keys.toList(),
+                             peerNicknames = peerNicknames,
+                             peerRSSI = peerRSSI,
++                            colorScheme = colorScheme,
++                            viewModel = viewModel,
+                             nickname = nickname,
+                             selectedPrivatePeer = selectedPrivatePeer,
+                             onPrivateChatStart = { peerID -> viewModel.showPrivateChatSheet(peerID) }
+INNEREOF
+patch -p0 < patch_screen.diff

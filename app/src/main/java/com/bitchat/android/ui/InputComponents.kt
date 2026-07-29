@@ -49,49 +49,7 @@ import com.bitchat.android.ui.media.FilePickerButton
  * Extracted from ChatScreen.kt for better organization
  */
 
-/**
- * VisualTransformation that styles slash commands with background and color
- * while preserving cursor positioning and click handling
- */
-class SlashCommandVisualTransformation : VisualTransformation {
-    override fun filter(text: AnnotatedString): TransformedText {
-        val slashCommandRegex = Regex("(/\\w+)(?=\\s|$)")
-        val annotatedString = buildAnnotatedString {
-            var lastIndex = 0
 
-            slashCommandRegex.findAll(text.text).forEach { match ->
-                // Add text before the match
-                if (match.range.first > lastIndex) {
-                    append(text.text.substring(lastIndex, match.range.first))
-                }
-
-                // Add the styled slash command
-                withStyle(
-                    style = SpanStyle(
-                        color = Color(0xFF00FF7F), // Bright green
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Medium,
-                        background = Color(0xFF2D2D2D) // Dark gray background
-                    )
-                ) {
-                    append(match.value)
-                }
-
-                lastIndex = match.range.last + 1
-            }
-
-            // Add remaining text
-            if (lastIndex < text.text.length) {
-                append(text.text.substring(lastIndex))
-            }
-        }
-
-        return TransformedText(
-            text = annotatedString,
-            offsetMapping = OffsetMapping.Identity
-        )
-    }
-}
 
 /**
  * VisualTransformation that styles mentions with background and color
@@ -113,7 +71,7 @@ class MentionVisualTransformation : VisualTransformation {
                 withStyle(
                     style = SpanStyle(
                         color = Color(0xFFFF9500), // Orange
-                        fontFamily = FontFamily.Monospace,
+                        
                         fontWeight = FontWeight.SemiBold
                     )
                 ) {
@@ -197,7 +155,7 @@ fun MessageInput(
                 onValueChange = onValueChange,
                 textStyle = MaterialTheme.typography.bodyMedium.copy(
                     color = colorScheme.primary,
-                    fontFamily = FontFamily.Monospace
+                    
                 ),
                 cursorBrush = SolidColor(if (isRecording) Color.Transparent else colorScheme.primary),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
@@ -205,7 +163,7 @@ fun MessageInput(
                     if (hasText) onSend() // Only send if there's text
                 }),
                 visualTransformation = CombinedVisualTransformation(
-                    listOf(SlashCommandVisualTransformation(), MentionVisualTransformation())
+                    listOf(MentionVisualTransformation())
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -220,7 +178,7 @@ fun MessageInput(
                 Text(
                     text = stringResource(R.string.type_a_message_placeholder),
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = FontFamily.Monospace
+                        
                     ),
                     color = colorScheme.onSurface.copy(alpha = 0.5f), // Muted grey
                     modifier = Modifier.fillMaxWidth()
@@ -243,7 +201,7 @@ fun MessageInput(
                     val maxSs = maxSecs % 60
                     Text(
                         text = String.format("%02d:%02d / %02d:%02d", mm, ss, maxMm, maxSs),
-                        fontFamily = FontFamily.Monospace,
+                        
                         color = colorScheme.primary,
                         fontSize = (BASE_FONT_SIZE - 4).sp
                     )
@@ -365,88 +323,7 @@ fun MessageInput(
     // Auto-stop handled inside VoiceRecordButton
 }
 
-@Composable
-fun CommandSuggestionsBox(
-    suggestions: List<CommandSuggestion>,
-    onSuggestionClick: (CommandSuggestion) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val colorScheme = MaterialTheme.colorScheme
 
-    Column(
-        modifier = modifier
-            .verticalScroll(rememberScrollState())
-            .background(colorScheme.surface)
-            .border(1.dp, colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
-            .padding(vertical = 8.dp)
-    ) {
-        suggestions.forEach { suggestion: CommandSuggestion ->
-            CommandSuggestionItem(
-                suggestion = suggestion,
-                onClick = { onSuggestionClick(suggestion) }
-            )
-        }
-    }
-}
-
-@Composable
-fun CommandSuggestionItem(
-    suggestion: CommandSuggestion,
-    onClick: () -> Unit
-) {
-    val colorScheme = MaterialTheme.colorScheme
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(horizontal = 12.dp, vertical = 3.dp)
-            .background(Color.Gray.copy(alpha = 0.1f)),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        // Show all aliases together
-        val allCommands = if (suggestion.aliases.isNotEmpty()) {
-            listOf(suggestion.command) + suggestion.aliases
-        } else {
-            listOf(suggestion.command)
-        }
-
-        Text(
-            text = allCommands.joinToString(", "),
-            style = MaterialTheme.typography.bodySmall.copy(
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Medium
-            ),
-            color = colorScheme.primary,
-            fontSize = (BASE_FONT_SIZE - 4).sp
-        )
-
-        // Show syntax if any
-        suggestion.syntax?.let { syntax ->
-            Text(
-                text = syntax,
-                style = MaterialTheme.typography.bodySmall.copy(
-                    fontFamily = FontFamily.Monospace
-                ),
-                color = colorScheme.onSurface.copy(alpha = 0.8f),
-                fontSize = (BASE_FONT_SIZE - 5).sp
-            )
-        }
-
-        // Show description
-        Text(
-            text = suggestion.description,
-            style = MaterialTheme.typography.bodySmall.copy(
-                fontFamily = FontFamily.Monospace
-            ),
-            color = colorScheme.onSurface.copy(alpha = 0.7f),
-            fontSize = (BASE_FONT_SIZE - 5).sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
 
 @Composable
 fun MentionSuggestionsBox(
@@ -489,7 +366,7 @@ fun MentionSuggestionItem(
         Text(
             text = stringResource(R.string.mention_suggestion_at, suggestion),
             style = MaterialTheme.typography.bodySmall.copy(
-                fontFamily = FontFamily.Monospace,
+                
                 fontWeight = FontWeight.SemiBold
             ),
             color = Color(0xFFFF9500), // Orange like mentions
@@ -501,7 +378,7 @@ fun MentionSuggestionItem(
         Text(
             text = stringResource(R.string.mention),
             style = MaterialTheme.typography.bodySmall.copy(
-                fontFamily = FontFamily.Monospace
+                
             ),
             color = colorScheme.onSurface.copy(alpha = 0.7f),
             fontSize = (BASE_FONT_SIZE - 5).sp

@@ -110,7 +110,7 @@ fun LinkPreviewPill(
                 // Title - matches iOS styling
                 Text(
                     text = displayTitle,
-                    fontFamily = FontFamily.Monospace,
+                    
                     fontSize = BASE_FONT_SIZE.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = textColor,
@@ -121,7 +121,7 @@ fun LinkPreviewPill(
                 // Host - matches iOS styling
                 Text(
                     text = displayHost,
-                    fontFamily = FontFamily.Monospace,
+                    
                     fontSize = 11.sp,
                     color = textColor.copy(alpha = 0.6f),
                     maxLines = 1,

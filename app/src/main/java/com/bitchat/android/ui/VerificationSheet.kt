@@ -144,7 +144,7 @@ fun VerificationSheet(
                     text = {
                         Text(
                             text = "My QR",
-                            fontFamily = FontFamily.Monospace,
+                            
                             fontSize = 14.sp
                         )
                     }
@@ -155,7 +155,7 @@ fun VerificationSheet(
                     text = {
                         Text(
                             text = "Scan",
-                            fontFamily = FontFamily.Monospace,
+                            
                             fontSize = 14.sp
                         )
                     }
@@ -208,7 +208,7 @@ fun VerificationSheet(
                     ) {
                         Text(
                             text = stringResource(R.string.verify_remove),
-                            fontFamily = FontFamily.Monospace,
+                            
                             fontSize = 12.sp
                         )
                     }
@@ -232,7 +232,7 @@ private fun VerificationHeader(
         Text(
             text = stringResource(R.string.verify_title).uppercase(),
             fontSize = 14.sp,
-            fontFamily = FontFamily.Monospace,
+            
             color = accent
         )
         CloseButton(onClick = onClose)
@@ -258,7 +258,7 @@ private fun MyQrTabContent(
         Text(
             text = stringResource(R.string.verify_my_qr_title),
             style = MaterialTheme.typography.titleMedium,
-            fontFamily = FontFamily.Monospace,
+            
             color = accent
         )
         
@@ -283,7 +283,7 @@ private fun MyQrTabContent(
             ) {
                 Text(
                     text = stringResource(R.string.verify_qr_unavailable),
-                    fontFamily = FontFamily.Monospace,
+                    
                     fontSize = 12.sp,
                     color = Color.Black.copy(alpha = 0.6f)
                 )
@@ -296,7 +296,7 @@ private fun MyQrTabContent(
         Text(
             text = nickname,
             style = MaterialTheme.typography.headlineSmall,
-            fontFamily = FontFamily.Monospace,
+            
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center
         )
@@ -307,7 +307,7 @@ private fun MyQrTabContent(
         Text(
             text = stringResource(R.string.app_name).lowercase(),
             style = MaterialTheme.typography.bodyMedium,
-            fontFamily = FontFamily.Monospace,
+            
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
             textAlign = TextAlign.Center
         )
@@ -355,7 +355,7 @@ private fun ScanTabContent(
                 Text(
                     text = stringResource(R.string.verify_scan_prompt_friend),
                     color = Color.White,
-                    fontFamily = FontFamily.Monospace,
+                    
                     fontSize = 12.sp,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -386,7 +386,7 @@ private fun ScanTabContent(
                 Spacer(modifier = Modifier.height(24.dp))
                 Text(
                     text = stringResource(R.string.verify_camera_permission),
-                    fontFamily = FontFamily.Monospace,
+                    
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -397,7 +397,7 @@ private fun ScanTabContent(
                 ) {
                     Text(
                         text = stringResource(R.string.verify_request_camera),
-                        fontFamily = FontFamily.Monospace
+                        
                     )
                 }
             }

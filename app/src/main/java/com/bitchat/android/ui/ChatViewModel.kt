@@ -104,7 +104,7 @@ class ChatViewModel(
     }
 
     val privateChatManager = PrivateChatManager(state, messageManager, dataManager, noiseSessionDelegate)
-    private val commandProcessor = CommandProcessor(state, messageManager, channelManager, privateChatManager)
+
     private val notificationManager = NotificationManager(
       application.applicationContext,
       NotificationManagerCompat.from(application.applicationContext),
@@ -169,8 +169,7 @@ class ChatViewModel(
     val passwordPromptChannel: StateFlow<String?> = state.passwordPromptChannel
     val hasUnreadChannels = state.hasUnreadChannels
     val hasUnreadPrivateMessages = state.hasUnreadPrivateMessages
-    val showCommandSuggestions: StateFlow<Boolean> = state.showCommandSuggestions
-    val commandSuggestions: StateFlow<List<CommandSuggestion>> = state.commandSuggestions
+
     val showMentionSuggestions: StateFlow<Boolean> = state.showMentionSuggestions
     val mentionSuggestions: StateFlow<List<String>> = state.mentionSuggestions
     val favoritePeers: StateFlow<Set<String>> = state.favoritePeers
@@ -490,24 +489,7 @@ class ChatViewModel(
     fun sendMessage(content: String) {
         if (content.isEmpty()) return
         
-        // Check for commands
-        if (content.startsWith("/")) {
-            val selectedLocationForCommand = state.selectedLocationChannel.value
-            commandProcessor.processCommand(content, mesh, mesh.myPeerID, { messageContent, mentions, channel ->
-                if (selectedLocationForCommand is com.bitchat.android.geohash.ChannelID.Location) {
-                    // Route command-generated public messages via Nostr in geohash channels
-                    geohashViewModel.sendGeohashMessage(
-                        messageContent,
-                        selectedLocationForCommand.channel,
-                        mesh.myPeerID,
-                        state.getNicknameValue()
-                    )
-                } else {
-                    mesh.sendMessage(messageContent, mentions, channel)
-                }
-            }, this)
-            return
-        }
+
         
         val mentions = messageManager.parseMentions(content, mesh.getPeerNicknames().values.toSet(), state.getNicknameValue())
         // REMOVED: Auto-join mentioned channels feature that was incorrectly parsing hashtags from @mentions
@@ -515,6 +497,12 @@ class ChatViewModel(
         
         var selectedPeer = state.getSelectedPrivateChatPeerValue()
         val currentChannelValue = state.getCurrentChannelValue()
+        
+        // Block sending to read-only official broadcast channel
+        if (selectedPeer == null && currentChannelValue == "official_updates") {
+            // Silently drop the attempt, or you can log it
+            return
+        }
         
         if (selectedPeer != null) {
             // If the selected peer is a temporary Nostr alias or a noise-hex identity, resolve to a canonical target
@@ -872,24 +860,62 @@ class ChatViewModel(
         verificationHandler.unverifyFingerprintValue(fingerprint)
     }
 
-    // MARK: - Command Autocomplete (delegated)
-    
-    fun updateCommandSuggestions(input: String) {
-        commandProcessor.updateCommandSuggestions(input)
-    }
-    
-    fun selectCommandSuggestion(suggestion: CommandSuggestion): String {
-        return commandProcessor.selectCommandSuggestion(suggestion)
-    }
-    
     // MARK: - Mention Autocomplete
     
     fun updateMentionSuggestions(input: String) {
-        commandProcessor.updateMentionSuggestions(input, mesh, this)
+        val atIndex = input.lastIndexOf('@')
+        if (atIndex == -1) {
+            state.setShowMentionSuggestions(false)
+            state.setMentionSuggestions(emptyList())
+            return
+        }
+        
+        val textAfterAt = input.substring(atIndex + 1)
+        if (textAfterAt.contains(' ')) {
+            state.setShowMentionSuggestions(false)
+            state.setMentionSuggestions(emptyList())
+            return
+        }
+        
+        val peerCandidates: List<String> = when (val selectedChannel = state.selectedLocationChannel.value) {
+            is com.bitchat.android.geohash.ChannelID.Mesh, null -> {
+                mesh.getPeerNicknames().values.filter { it != mesh.getPeerNicknames()[mesh.myPeerID] }
+            }
+            is com.bitchat.android.geohash.ChannelID.Location -> {
+                val geohashPeople = state.getGeohashPeopleValue()
+                val currentNickname = state.getNicknameValue()
+                geohashPeople.mapNotNull { person ->
+                    val displayName = person.displayName
+                    if (displayName.startsWith("${currentNickname}#")) null else displayName
+                }
+            }
+            else -> emptyList()
+        }
+        
+        val filteredNicknames = peerCandidates.filter { nickname ->
+            nickname.startsWith(textAfterAt, ignoreCase = true)
+        }.sorted()
+        
+        if (filteredNicknames.isNotEmpty()) {
+            state.setMentionSuggestions(filteredNicknames)
+            state.setShowMentionSuggestions(true)
+        } else {
+            state.setShowMentionSuggestions(false)
+            state.setMentionSuggestions(emptyList())
+        }
     }
     
     fun selectMentionSuggestion(nickname: String, currentText: String): String {
-        return commandProcessor.selectMentionSuggestion(nickname, currentText)
+        state.setShowMentionSuggestions(false)
+        state.setMentionSuggestions(emptyList())
+        
+        val atIndex = currentText.lastIndexOf('@')
+        if (atIndex == -1) {
+            return "$currentText@$nickname "
+        }
+        
+        val textBeforeAt = currentText.substring(0, atIndex)
+        return "$textBeforeAt@$nickname "
     }
     
     // MARK: - BluetoothMeshDelegate Implementation (delegated)
@@ -983,7 +1009,7 @@ class ChatViewModel(
         }
 
         // Reset nickname
-        val newNickname = "anon${Random.nextInt(1000, 9999)}"
+        val newNickname = com.bitchat.android.identity.IdentityGenerator.generatePhoneticIdentifier()
         state.setNickname(newNickname)
         dataManager.saveNickname(newNickname)
         

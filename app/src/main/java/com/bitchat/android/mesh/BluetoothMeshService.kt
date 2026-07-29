@@ -333,6 +333,10 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 return encryptionService.verifyEd25519Signature(signature, data, publicKey)
             }
             
+            override fun processOfficialBroadcast(payload: ByteArray): Pair<Boolean, ByteArray>? {
+                return securityManager.processOfficialBroadcast(payload)
+            }
+            
             // Noise protocol operations
             override fun hasNoiseSession(peerID: String): Boolean {
                 return encryptionService.hasEstablishedSession(peerID)

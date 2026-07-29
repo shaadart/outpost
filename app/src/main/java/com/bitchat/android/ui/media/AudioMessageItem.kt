@@ -61,7 +61,7 @@ fun AudioMessageItem(
         var headerLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
         Text(
             text = headerText,
-            fontFamily = FontFamily.Monospace,
+            
             color = colorScheme.onSurface,
             modifier = Modifier.pointerInput(message.id) {
                 detectTapGestures(onTap = { pos ->

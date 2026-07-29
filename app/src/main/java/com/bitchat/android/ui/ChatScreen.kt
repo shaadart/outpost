@@ -158,6 +158,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
         modifier = Modifier
             .fillMaxSize()
             .background(colorScheme.background)
+            .windowInsetsPadding(WindowInsets.ime)
     ) {
         Column(
             modifier = Modifier
@@ -418,6 +419,7 @@ fun ChatInputBar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .windowInsetsPadding(WindowInsets.navigationBars)
+                    .windowInsetsPadding(WindowInsets.ime)
                     .padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {

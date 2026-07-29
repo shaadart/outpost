@@ -147,7 +147,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                                 channelId
                                         .removePrefix("#broadcast_")
                                         .split("_")
-                                        .dropLast(1)
+                                        .drop(1)
                                         .joinToString(" ")
                                         .replaceFirstChar { it.uppercase() }
                                         .ifEmpty { "Broadcast Channel" }
@@ -251,7 +251,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                             selectedConvId!!
                                     .removePrefix("#broadcast_")
                                     .split("_")
-                                    .dropLast(1)
+                                    .drop(1)
                                     .joinToString(" ")
                                     .replaceFirstChar { it.uppercase() }
                                     .ifEmpty { "Broadcast Channel" }
@@ -301,12 +301,12 @@ fun ChatScreen(viewModel: ChatViewModel) {
                                             selectedConvId = item.id
                                             selectedConvIsPrivate = item.isPrivate
                                             isOfficialUpdates = item.id == "official_updates"
-                                            isBroadcastConv = item.id.startsWith("broadcast_")
+                                            isBroadcastConv = item.id.startsWith("#broadcast_")
                                             if (item.isPrivate) {
                                                 viewModel.startPrivateChat(item.id)
                                             }
                                             if (item.id == "official_updates" ||
-                                                            item.id.startsWith("broadcast_")
+                                                            item.id.startsWith("#broadcast_")
                                             ) {
                                                 viewModel.switchToChannel(item.id)
                                             }

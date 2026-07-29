@@ -216,6 +216,20 @@ fun MeshChannelRow(
     onLeaveChannel: () -> Unit,
 ) {
     val isOfficial = channel == "official_updates"
+    val isBroadcast = channel.startsWith("#broadcast_")
+    val displayName = when {
+        isOfficial -> "\uD83D\uDCE2 Official Updates"
+        isBroadcast -> {
+            "\uD83D\uDCE2 " + channel
+                .removePrefix("#broadcast_")
+                .split("_")
+                .drop(1)
+                .joinToString(" ")
+                .replaceFirstChar { it.uppercase() }
+                .ifEmpty { "Broadcast Channel" }
+        }
+        else -> channel
+    }
     
     Surface(
         onClick = onChannelClick,
@@ -252,7 +266,7 @@ fun MeshChannelRow(
                 }
                 
                 Text(
-                    text = channel,
+                    text = displayName,
                     style = MaterialTheme.typography.bodyMedium.copy(
                         
                         fontSize = BASE_FONT_SIZE.sp

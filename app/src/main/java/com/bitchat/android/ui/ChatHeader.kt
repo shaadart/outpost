@@ -2,36 +2,38 @@ package com.bitchat.android.ui
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.outlined.NoEncryption
+import androidx.compose.material.icons.outlined.Sync
+import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.material.icons.outlined.NoEncryption
-import androidx.compose.material.icons.outlined.Sync
-import androidx.compose.material.icons.outlined.Warning
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.ui.res.stringResource
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.utils.singleOrTripleClickable
 
 @Composable
 fun MeshChatHeader(
     showBack: Boolean,
+    title: String = "MeshChat",
     onBack: () -> Unit,
     onShareClick: () -> Unit,
     onTripleShieldClick: () -> Unit,
+    peerCount: Int = 0,
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
@@ -48,6 +50,7 @@ fun MeshChatHeader(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(
+                modifier = Modifier.weight(1f),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (showBack) {
@@ -63,10 +66,12 @@ fun MeshChatHeader(
                     }
                 }
                 Text(
-                    text = "MeshChat",
+                    text = title,
                     style = MaterialTheme.typography.titleLarge,
-                    color = colorScheme.primary,
-                    fontWeight = FontWeight.Bold
+                    color = colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
 
@@ -74,7 +79,7 @@ fun MeshChatHeader(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                NetworkHealthBadge()
+                NetworkHealthBadge(peerCount = peerCount)
 
                 IconButton(
                     onClick = onShareClick,
@@ -101,6 +106,42 @@ fun MeshChatHeader(
                 )
             }
         }
+    }
+}
+
+@Composable
+fun NetworkHealthBadge(
+    peerCount: Int = 0,
+    modifier: Modifier = Modifier
+) {
+    val infiniteTransition = rememberInfiniteTransition()
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        )
+    )
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+    ) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .alpha(alpha)
+                .background(Color(0xFF00C851), CircleShape)
+        )
+        Spacer(modifier = Modifier.width(5.dp))
+        Text(
+            text = "$peerCount Peers Nearby",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color(0xFF00C851),
+            fontWeight = FontWeight.Medium,
+            fontSize = 13.sp
+        )
     }
 }
 
@@ -140,41 +181,4 @@ fun NoiseSessionIcon(
         modifier = modifier,
         tint = color
     )
-}
-
-@Composable
-fun NetworkHealthBadge(
-    modifier: Modifier = Modifier
-) {
-    val colorScheme = MaterialTheme.colorScheme
-
-    val infiniteTransition = rememberInfiniteTransition()
-    val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        )
-    )
-
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier
-    ) {
-        Box(
-            modifier = Modifier
-                .size(8.dp)
-                .alpha(alpha)
-                .background(Color(0xFF00C851), CircleShape)
-        )
-        Spacer(modifier = Modifier.width(5.dp))
-        Text(
-            text = "14 Peers Nearby",
-            style = MaterialTheme.typography.bodySmall,
-            color = Color(0xFF00C851),
-            fontWeight = FontWeight.Medium,
-            fontSize = 13.sp
-        )
-    }
 }

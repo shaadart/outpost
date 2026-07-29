@@ -27,7 +27,8 @@ data class Message(
     val channel: String?,
     val deliveryState: DeliveryState,
     val encryptedContent: ByteArray? = null,
-    val isEncrypted: Boolean = false
+    val isEncrypted: Boolean = false,
+    val isVerified: Boolean = false
 )
 
 data class Conversation(

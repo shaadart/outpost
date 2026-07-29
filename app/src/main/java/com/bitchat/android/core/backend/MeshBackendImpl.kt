@@ -162,7 +162,8 @@ class MeshBackendImpl(
             channel = channel,
             deliveryState = mappedState,
             encryptedContent = encryptedContent,
-            isEncrypted = isEncrypted
+            isEncrypted = isEncrypted,
+            isVerified = isVerified
         )
     }
 }

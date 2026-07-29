@@ -154,7 +154,11 @@ fun MessageItem(
         Box(modifier = Modifier.fillMaxWidth()) {
             val isSelf = message.senderPeerID == meshService.myPeerID || message.sender == currentUserNickname || message.sender.startsWith("$currentUserNickname#")
             val isOfficial = message.sender == "system" || message.isVerified
-            val bubbleColor = if (isSelf) Color(0xFF25D366) else Color(0xFF202C33)
+            val bubbleColor = when {
+                isSelf -> Color(0xFF25D366)
+                isOfficial -> Color(0xFF0A2B3D)
+                else -> Color(0xFF202C33)
+            }
             val bubbleShape = androidx.compose.foundation.shape.RoundedCornerShape(
                 topStart = 12.dp,
                 topEnd = 12.dp,

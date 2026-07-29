@@ -45,6 +45,18 @@ class DataManager(private val context: Context) {
     fun saveNickname(nickname: String) {
         prefs.edit().putString("nickname", nickname).apply()
     }
+
+    fun isOnboardingComplete(): Boolean {
+        return prefs.getBoolean("onboarding_complete", false)
+    }
+
+    fun setOnboardingComplete() {
+        prefs.edit().putBoolean("onboarding_complete", true).apply()
+    }
+
+    fun clearOnboardingFlag() {
+        prefs.edit().remove("onboarding_complete").apply()
+    }
     
     // MARK: - Geohash Channel Persistence
     

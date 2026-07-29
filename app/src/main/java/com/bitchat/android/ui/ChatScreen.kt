@@ -1,28 +1,23 @@
 package com.bitchat.android.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
@@ -31,28 +26,121 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bitchat.android.model.BitchatMessage
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.*
 
 enum class ChatViewState {
     INBOX,
     CHAT
 }
 
+private data class InboxItem(
+    val id: String,
+    val title: String,
+    val subtitle: String,
+    val timestamp: String,
+    val unreadCount: Int,
+    val isPinned: Boolean,
+    val isPrivate: Boolean
+)
+
 @Composable
 fun ChatScreen(viewModel: ChatViewModel) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val colorScheme = MaterialTheme.colorScheme
+    val timeFormatter = remember { SimpleDateFormat("h:mm a", Locale.getDefault()) }
 
-    val conversations = remember { MockDataProvider.conversations }
+    val nickname by viewModel.nickname.collectAsStateWithLifecycle()
+    val publicMessages by viewModel.messages.collectAsStateWithLifecycle()
+    val privateChats by viewModel.privateChats.collectAsStateWithLifecycle()
+    val channelMessages by viewModel.channelMessages.collectAsStateWithLifecycle()
+    val joinedChannels by viewModel.joinedChannels.collectAsStateWithLifecycle()
+    val unreadPrivateMessages by viewModel.unreadPrivateMessages.collectAsStateWithLifecycle()
+    val unreadChannelMessages by viewModel.unreadChannelMessages.collectAsStateWithLifecycle()
+    val peerNicknames by viewModel.peerNicknames.collectAsStateWithLifecycle()
+    val connectedPeers by viewModel.connectedPeers.collectAsStateWithLifecycle()
+
     var currentView by remember { mutableStateOf(ChatViewState.INBOX) }
-    var selectedConversation by remember { mutableStateOf<MockConversation?>(null) }
+    var selectedConvId by remember { mutableStateOf<String?>(null) }
+    var selectedConvIsPrivate by remember { mutableStateOf(false) }
+    var isOfficialUpdates by remember { mutableStateOf(false) }
     var showPanicWipe by remember { mutableStateOf(false) }
     var messageText by remember { mutableStateOf(TextFieldValue("")) }
 
+    val inboxItems = remember(publicMessages, privateChats, channelMessages, joinedChannels, unreadChannelMessages, unreadPrivateMessages, peerNicknames) {
+        val items = mutableListOf<InboxItem>()
+
+        if ("official_updates" in joinedChannels) {
+            val msgs = channelMessages["official_updates"] ?: emptyList()
+            val last = msgs.lastOrNull()
+            items.add(
+                InboxItem(
+                    id = "official_updates",
+                    title = "\uD83D\uDCE2 CJP Official Updates",
+                    subtitle = last?.content ?: "No messages yet",
+                    timestamp = last?.let { timeFormatter.format(it.timestamp) } ?: "",
+                    unreadCount = unreadChannelMessages["official_updates"] ?: 0,
+                    isPinned = true,
+                    isPrivate = false
+                )
+            )
+        }
+
+        val lastPublic = publicMessages.lastOrNull()
+        items.add(
+            InboxItem(
+                id = "local_radius",
+                title = "\uD83D\uDCCD Local Radius Chatter",
+                subtitle = lastPublic?.content ?: "No messages yet",
+                timestamp = lastPublic?.let { timeFormatter.format(it.timestamp) } ?: "",
+                unreadCount = 0,
+                isPinned = false,
+                isPrivate = false
+            )
+        )
+
+        privateChats.forEach { (peerId, msgs) ->
+            val last = msgs.lastOrNull()
+            val displayName = peerNicknames[peerId] ?: peerId
+            items.add(
+                InboxItem(
+                    id = peerId,
+                    title = displayName,
+                    subtitle = last?.let {
+                        if (it.senderPeerID == viewModel.myPeerID || it.sender == nickname) "You: ${it.content}"
+                        else it.content
+                    } ?: "No messages yet",
+                    timestamp = last?.let { timeFormatter.format(it.timestamp) } ?: "",
+                    unreadCount = if (peerId in unreadPrivateMessages) 1 else 0,
+                    isPinned = false,
+                    isPrivate = true
+                )
+            )
+        }
+        items.toList()
+    }
+
+    val displayMessages: List<BitchatMessage> = when {
+        selectedConvId == null -> emptyList()
+        isOfficialUpdates -> channelMessages["official_updates"] ?: emptyList()
+        selectedConvIsPrivate -> privateChats[selectedConvId] ?: emptyList()
+        else -> publicMessages
+    }
+
+    val isReadOnly = isOfficialUpdates
+
     BackHandler(enabled = currentView == ChatViewState.CHAT) {
+        if (selectedConvIsPrivate && selectedConvId != null) {
+            viewModel.endPrivateChat()
+        }
+        if (isOfficialUpdates) {
+            viewModel.switchToChannel(null)
+        }
         currentView = ChatViewState.INBOX
-        selectedConversation = null
+        selectedConvId = null
     }
 
     Box(
@@ -65,42 +153,72 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.statusBars)
         ) {
+            val headerTitle = when {
+                selectedConvId == null -> "MeshChat"
+                isOfficialUpdates -> "\uD83D\uDCE2 CJP Official Updates"
+                selectedConvIsPrivate -> peerNicknames[selectedConvId] ?: selectedConvId ?: "Chat"
+                else -> "\uD83D\uDCCD Local Radius Chatter"
+            }
+
             MeshChatHeader(
                 showBack = currentView == ChatViewState.CHAT,
+                title = headerTitle,
                 onBack = {
+                    if (selectedConvIsPrivate && selectedConvId != null) {
+                        viewModel.endPrivateChat()
+                    }
+                    if (isOfficialUpdates) {
+                        viewModel.switchToChannel(null)
+                    }
                     currentView = ChatViewState.INBOX
-                    selectedConversation = null
+                    selectedConvId = null
                 },
                 onShareClick = {
-                    coroutineScope.launch {
-                        com.bitchat.android.utils.AppShareUtils.shareApkOffline(context)
-                    }
+                    coroutineScope.launch { com.bitchat.android.utils.AppShareUtils.shareApkOffline(context) }
                 },
-                onTripleShieldClick = { showPanicWipe = true }
+                onTripleShieldClick = { showPanicWipe = true },
+                peerCount = connectedPeers.size
             )
 
-            HorizontalDivider(
-                color = colorScheme.outline.copy(alpha = 0.3f)
-            )
+            HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
 
             when (currentView) {
                 ChatViewState.INBOX -> {
-                    InboxContent(
-                        conversations = conversations,
-                        onConversationClick = { conversation ->
-                            selectedConversation = conversation
-                            currentView = ChatViewState.CHAT
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(vertical = 4.dp)
+                    ) {
+                        items(items = inboxItems, key = { it.id }) { item ->
+                            InboxRow(item = item, onClick = {
+                                selectedConvId = item.id
+                                selectedConvIsPrivate = item.isPrivate
+                                isOfficialUpdates = item.id == "official_updates"
+                                if (item.isPrivate) {
+                                    viewModel.startPrivateChat(item.id)
+                                }
+                                if (item.id == "official_updates") {
+                                    viewModel.switchToChannel("official_updates")
+                                }
+                                currentView = ChatViewState.CHAT
+                            })
                         }
-                    )
+                    }
                 }
                 ChatViewState.CHAT -> {
-                    selectedConversation?.let { conversation ->
-                        ChatContent(
-                            conversation = conversation,
+                    MessagesList(
+                        messages = displayMessages,
+                        currentUserNickname = nickname,
+                        meshService = viewModel.meshServiceFacade,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (!isReadOnly) {
+                        ChatInputBar(
                             messageText = messageText,
                             onMessageTextChange = { messageText = it },
                             onSend = {
                                 if (messageText.text.trim().isNotEmpty()) {
+                                    if (isOfficialUpdates) return@ChatInputBar
+                                    viewModel.sendMessage(messageText.text.trim())
                                     messageText = TextFieldValue("")
                                 }
                             }
@@ -116,7 +234,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     showPanicWipe = false
                     viewModel.panicClearAllData()
                     currentView = ChatViewState.INBOX
-                    selectedConversation = null
+                    selectedConvId = null
                 },
                 modifier = Modifier.zIndex(10f)
             )
@@ -125,37 +243,12 @@ fun ChatScreen(viewModel: ChatViewModel) {
 }
 
 @Composable
-private fun InboxContent(
-    conversations: List<MockConversation>,
-    onConversationClick: (MockConversation) -> Unit
-) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 4.dp)
-    ) {
-        conversations.forEach { conversation ->
-            item(key = conversation.id) {
-                InboxRow(
-                    conversation = conversation,
-                    onClick = { onConversationClick(conversation) }
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun InboxRow(
-    conversation: MockConversation,
+    item: InboxItem,
     onClick: () -> Unit
 ) {
-    val isPinned = conversation.type == ConversationType.VERIFIED_BROADCAST
-    val bgColor = if (isPinned) Color(0xFF182229) else Color.Transparent
-    val accentColor = when (conversation.type) {
-        ConversationType.VERIFIED_BROADCAST -> Color(0xFF53BDEC)
-        ConversationType.LOCAL_RADIUS -> Color(0xFF25D366)
-        ConversationType.DIRECT_MESSAGE -> Color(0xFF25D366)
-    }
+    val bgColor = if (item.isPinned) Color(0xFF182229) else Color.Transparent
+    val accentColor = if (item.isPinned) Color(0xFF53BDEC) else Color(0xFF25D366)
 
     Surface(
         modifier = Modifier
@@ -171,16 +264,16 @@ private fun InboxRow(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = conversation.name,
+                    text = item.title,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.SemiBold,
-                    color = if (isPinned) Color(0xFF53BDEC) else MaterialTheme.colorScheme.onSurface,
+                    color = if (item.isPinned) Color(0xFF53BDEC) else MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = conversation.lastMessage,
+                    text = item.subtitle,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     maxLines = 1,
@@ -188,23 +281,21 @@ private fun InboxRow(
                 )
             }
             Spacer(modifier = Modifier.width(12.dp))
-            Column(
-                horizontalAlignment = Alignment.End
-            ) {
+            Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = conversation.timestamp,
+                    text = item.timestamp,
                     style = MaterialTheme.typography.bodySmall,
                     color = accentColor.copy(alpha = 0.7f),
                     fontSize = 12.sp
                 )
-                if (conversation.unreadCount > 0) {
+                if (item.unreadCount > 0) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Surface(
                         shape = RoundedCornerShape(50),
                         color = Color(0xFF25D366)
                     ) {
                         Text(
-                            text = conversation.unreadCount.toString(),
+                            text = item.unreadCount.toString(),
                             color = Color.White,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
@@ -222,162 +313,16 @@ private fun InboxRow(
 }
 
 @Composable
-private fun ChatContent(
-    conversation: MockConversation,
+fun ChatInputBar(
     messageText: TextFieldValue,
     onMessageTextChange: (TextFieldValue) -> Unit,
-    onSend: () -> Unit
-) {
-    val isReadOnly = conversation.type == ConversationType.VERIFIED_BROADCAST
-
-    Column(modifier = Modifier.fillMaxSize()) {
-        MessagesView(
-            messages = conversation.messages,
-            modifier = Modifier.weight(1f)
-        )
-
-        if (!isReadOnly) {
-            ChatInputBar(
-                messageText = messageText,
-                onMessageTextChange = onMessageTextChange,
-                onSend = onSend
-            )
-        }
-    }
-}
-
-@Composable
-private fun MessagesView(
-    messages: List<MockMessage>,
+    onSend: () -> Unit,
     modifier: Modifier = Modifier
-) {
-    val listState = rememberLazyListState()
-
-    LaunchedEffect(messages.size) {
-        if (messages.isNotEmpty()) {
-            listState.animateScrollToItem(messages.size - 1)
-        }
-    }
-
-    LazyColumn(
-        state = listState,
-        modifier = modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        items(
-            items = messages,
-            key = { "${it.sender}_${it.timestamp}_${it.content.hashCode()}" }
-        ) { message ->
-            MessageBubble(message = message)
-        }
-    }
-}
-
-@Composable
-private fun MessageBubble(message: MockMessage) {
-    val isMine = message.isMine
-    val isVerified = message.isVerified
-
-    val bubbleColor = when {
-        isVerified -> Color(0xFF0A2B3D)
-        isMine -> Color(0xFF25D366)
-        else -> Color(0xFF202C33)
-    }
-    val textColor = when {
-        isMine -> Color.White
-        else -> Color(0xFFE9EDEF)
-    }
-    val cornerShape = RoundedCornerShape(
-        topStart = 12.dp,
-        topEnd = 12.dp,
-        bottomStart = if (isMine) 12.dp else 2.dp,
-        bottomEnd = if (isMine) 2.dp else 12.dp
-    )
-
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = if (isMine) Alignment.End else Alignment.Start
-    ) {
-        Surface(
-            shape = cornerShape,
-            color = bubbleColor,
-            modifier = Modifier.widthIn(max = 280.dp)
-        ) {
-            Column(modifier = Modifier.padding(10.dp)) {
-                if (isVerified) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(bottom = 4.dp)
-                    ) {
-                        Text(
-                            text = "\uD83D\uDD12",
-                            fontSize = 12.sp
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Verified",
-                            color = Color(0xFF53BDEC),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-                if (!isMine && !isVerified) {
-                    Text(
-                        text = message.sender,
-                        color = Color(0xFF53BDEC),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(bottom = 3.dp)
-                    )
-                }
-                Text(
-                    text = message.content,
-                    color = textColor,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontSize = 15.sp
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = message.timestamp,
-                        color = textColor.copy(alpha = 0.6f),
-                        fontSize = 11.sp
-                    )
-                    if (isMine && message.deliveryStatus != null) {
-                        Spacer(modifier = Modifier.width(3.dp))
-                        val (icon, iconColor) = when (message.deliveryStatus) {
-                            DeliveryStatus.SENT -> Icons.Filled.Check to textColor.copy(alpha = 0.5f)
-                            DeliveryStatus.DELIVERED -> Icons.Filled.DoneAll to Color(0xFF53BDEC)
-                        }
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = null,
-                            tint = iconColor,
-                            modifier = Modifier.size(14.dp)
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ChatInputBar(
-    messageText: TextFieldValue,
-    onMessageTextChange: (TextFieldValue) -> Unit,
-    onSend: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         color = colorScheme.background
     ) {
         Column {
@@ -397,8 +342,7 @@ private fun ChatInputBar(
                     BasicTextField(
                         value = messageText,
                         onValueChange = onMessageTextChange,
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                         textStyle = MaterialTheme.typography.bodyMedium.copy(
                             color = Color(0xFFE9EDEF),
                             fontSize = 16.sp

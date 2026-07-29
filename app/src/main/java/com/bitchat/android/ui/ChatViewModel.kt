@@ -15,6 +15,8 @@ import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.service.MeshServiceHolder
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
+import com.bitchat.android.core.backend.MeshBackend
+import com.bitchat.android.core.backend.MeshBackendImpl
 import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.protocol.BitchatPacket
 
@@ -31,6 +33,8 @@ import com.bitchat.android.noise.NoiseSession
 import com.bitchat.android.nostr.GeohashAliasRegistry
 import com.bitchat.android.util.dataFromHexString
 import com.bitchat.android.util.hexEncodedString
+import java.io.File
+import java.security.KeyStore
 import java.security.MessageDigest
 
 /**
@@ -122,6 +126,14 @@ class ChatViewModel(
     )
     val verifiedFingerprints = verificationHandler.verifiedFingerprints
 
+    fun completeOnboarding(displayName: String) {
+        dataManager.saveNickname(displayName)
+        dataManager.setOnboardingComplete()
+        state.setNickname(displayName)
+        // Trigger full initialization (crypto keys, mesh service, Nostr, etc.)
+        loadAndInitialize()
+    }
+
     // Media file sending manager
     private val mediaSendingManager = MediaSendingManager(state, messageManager, channelManager) { mesh }
     
@@ -193,6 +205,17 @@ class ChatViewModel(
     val myPeerID: String
         get() = mesh.myPeerID
 
+    val meshBackend: MeshBackend by lazy {
+        MeshBackendImpl(
+            meshService = mesh,
+            chatState = state,
+            channelManager = channelManager,
+            privateChatManager = privateChatManager,
+            mediaSendingManager = mediaSendingManager,
+            scope = viewModelScope
+        )
+    }
+
     fun getMeshPeerFingerprint(peerID: String): String? = mesh.getPeerFingerprint(peerID)
 
     fun getMeshPeerInfo(peerID: String): com.bitchat.android.mesh.PeerInfo? = mesh.getPeerInfo(peerID)
@@ -203,7 +226,9 @@ class ChatViewModel(
 
     init {
         // Note: Mesh service delegate is now set by MainActivity
-        loadAndInitialize()
+        if (dataManager.isOnboardingComplete()) {
+            loadAndInitialize()
+        }
         // Hydrate UI state from process-wide AppStateStore to survive Activity recreation
         viewModelScope.launch {
             try { com.bitchat.android.services.AppStateStore.peers.collect { peers ->
@@ -273,6 +298,18 @@ class ChatViewModel(
             }
         }
         
+        // Ensure official_updates channel is always present
+        if ("official_updates" !in joinedChannels) {
+            channelManager.joinChannel("official_updates", null, mesh.myPeerID)
+            val updatedChannels = state.getJoinedChannelsValue() + "official_updates"
+            state.setJoinedChannels(updatedChannels)
+            if (!state.getChannelMessagesValue().containsKey("official_updates")) {
+                val updated = state.getChannelMessagesValue().toMutableMap()
+                updated["official_updates"] = emptyList()
+                state.setChannelMessages(updated)
+            }
+        }
+
         // Load other data
         dataManager.loadFavorites()
         state.setFavoritePeers(dataManager.favoritePeers.toSet())
@@ -1008,6 +1045,9 @@ class ChatViewModel(
             Log.e(TAG, "Failed to reset Nostr/geohash: ${e.message}")
         }
 
+        // Physically destroy encrypted storage files and Android Keystore keys
+        destroySecureStoragePhysical()
+
         // Reset nickname
         val newNickname = com.bitchat.android.identity.IdentityGenerator.generatePhoneticIdentifier()
         state.setNickname(newNickname)
@@ -1017,6 +1057,49 @@ class ChatViewModel(
         recreateMeshServiceAfterPanic()
 
         Log.w(TAG, "🚨 PANIC MODE COMPLETED - New identity: ${mesh.myPeerID}")
+    }
+
+    /**
+     * Physically destroy encrypted SharedPreferences files and Android Keystore MasterKey.
+     * After this, forensic recovery of encrypted blobs is impossible because:
+     * 1. The encrypted XML files are deleted from disk
+     * 2. The Keystore MasterKey used to encrypt them is deleted
+     * 3. New keys/files will be created fresh on next access
+     */
+    private fun destroySecureStoragePhysical() {
+        try {
+            val ctx = getApplication<android.app.Application>()
+            // Delete all bitchat SharedPreferences files from disk
+            val prefsDir = File(ctx.filesDir.parentFile, "shared_prefs")
+            if (prefsDir.exists() && prefsDir.isDirectory) {
+                prefsDir.listFiles()?.forEach { file ->
+                    if (file.name.startsWith("bitchat_")) {
+                        file.delete()
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to delete preference files: ${e.message}")
+        }
+
+        // Delete the Android Keystore MasterKey so encrypted prefs are permanently unrecoverable
+        try {
+            val keyStore = KeyStore.getInstance("AndroidKeyStore")
+            keyStore.load(null)
+            val masterKeyAlias = "_androidx_security_crypto_master_key_"
+            if (keyStore.containsAlias(masterKeyAlias)) {
+                keyStore.deleteEntry(masterKeyAlias)
+            }
+            // Also delete any legacy key aliases that may exist
+            val legacyAliases = listOf("bitchat_master_key")
+            legacyAliases.forEach { alias ->
+                if (keyStore.containsAlias(alias)) {
+                    keyStore.deleteEntry(alias)
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to delete Keystore MasterKey: ${e.message}")
+        }
     }
 
     /**

@@ -1,6 +1,8 @@
 package com.bitchat.android
 
+import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -12,7 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
@@ -22,6 +24,7 @@ import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.ui.ChatScreen
 import com.bitchat.android.ui.ChatViewModel
+import com.bitchat.android.ui.OnboardingScreen
 import com.bitchat.android.ui.OrientationAwareActivity
 import com.bitchat.android.ui.theme.BitchatTheme
 import com.bitchat.android.utils.PermissionManager
@@ -109,18 +112,40 @@ class MainActivity : OrientationAwareActivity() {
         onBackPressedDispatcher.addCallback(this, backCallback)
         
         setContent {
+            val prefs: SharedPreferences = remember {
+                getSharedPreferences("bitchat_prefs", Context.MODE_PRIVATE)
+            }
+            var onboardingComplete by remember {
+                mutableStateOf(prefs.getBoolean("onboarding_complete", false))
+            }
+
             BitchatTheme {
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     containerColor = MaterialTheme.colorScheme.background
                 ) { innerPadding ->
-                    ChatScreen(viewModel = chatViewModel)
+                    if (onboardingComplete) {
+                        ChatScreen(viewModel = chatViewModel)
+                    } else {
+                        OnboardingScreen(
+                            onComplete = { displayName ->
+                                chatViewModel.completeOnboarding(displayName)
+                                onboardingComplete = true
+                                // Kick off mesh service + permissions now that user is onboarded
+                                lifecycleScope.launch {
+                                    checkAndRequestPermissions()
+                                }
+                            }
+                        )
+                    }
                 }
             }
-            
-            // Request permissions after rendering the first frame to ensure zero-friction entry
-            LaunchedEffect(Unit) {
-                checkAndRequestPermissions()
+
+            // Request permissions after onboarding (or immediately if already complete)
+            LaunchedEffect(onboardingComplete) {
+                if (onboardingComplete) {
+                    checkAndRequestPermissions()
+                }
             }
         }
 

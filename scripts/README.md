@@ -23,3 +23,18 @@ adb -s SERIAL shell am instrument -w -r com.bitchat.droid.test/androidx.test.run
 ```
 
 CI runs the Android tests and optimized QA smoke script on API 28 and API 35 emulators before packaging release candidates. A successful emulator run validates Android UI/storage behavior; the two independent Noise peers in the JVM suite validate cryptography, serialization and fragment delivery without a second phone. Neither substitutes for radio interoperability and range testing between separate physical devices.
+
+## Documentation demos
+
+The README's sample conversation uses the production `ChatScreen` with two sample contacts and invented messages. A visible demo banner distinguishes these screenshots from actual Bluetooth delivery. The fixture is in `androidTest`, is only invoked explicitly, requires empty chat storage on an emulator, and never sends messages over a transport.
+
+On a fresh disposable emulator, build and install the debug app and the dedicated screenshot runner:
+
+```bash
+./gradlew -I scripts/screenshot-runner.gradle assembleDebug assembleDebugAndroidTest
+adb -s EMULATOR_SERIAL install -r app/build/outputs/apk/debug/app-x86_64-debug.apk
+adb -s EMULATOR_SERIAL install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+adb -s EMULATOR_SERIAL shell am instrument -w -r -e demo true com.bitchat.droid.test/com.bitchat.android.screenshots.DemoScreenshotInstrumentation
+```
+
+The runner writes `nearby-demo.png` and `chat-demo.png` under the debug app's `files/documentation/` directory. Extract them with `adb -s EMULATOR_SERIAL exec-out run-as com.bitchat.droid cat files/documentation/FILENAME`, then discard the emulator's demo data. The ordinary build keeps `AndroidJUnitRunner`; omit the init script and rebuild `assembleDebugAndroidTest` before normal instrumented testing. No demo entry point is added to the release app.

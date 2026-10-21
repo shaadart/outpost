@@ -1,0 +1,9 @@
+// Explicit documentation capture only. The normal build keeps AndroidJUnitRunner.
+gradle.beforeProject { project ->
+    project.pluginManager.withPlugin('com.android.application') {
+        project.extensions.getByName('androidComponents').finalizeDsl { android ->
+            android.defaultConfig.testInstrumentationRunner =
+                'com.bitchat.android.screenshots.DemoScreenshotInstrumentation'
+        }
+    }
+}

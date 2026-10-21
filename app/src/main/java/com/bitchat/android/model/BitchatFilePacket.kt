@@ -72,7 +72,7 @@ data class BitchatFilePacket(
         buf.putInt(content.size)
         buf.put(content)
 
-        val result = buf.array()
+            val result = buf.array()
             android.util.Log.d("BitchatFilePacket", "✅ Encoded successfully: ${result.size} bytes total")
             return result
         } catch (e: Exception) {
@@ -85,11 +85,13 @@ data class BitchatFilePacket(
         fun decode(data: ByteArray): BitchatFilePacket? {
             android.util.Log.d("BitchatFilePacket", "🔄 Decoding ${data.size} bytes")
             try {
+                if (data.size > com.bitchat.android.util.AppConstants.Media.MAX_FILE_SIZE_BYTES + 65536) return null
                 var off = 0
                 var name: String? = null
                 var size: Long? = null
                 var mime: String? = null
-                var contentBytes: ByteArray? = null
+                val contentStream = java.io.ByteArrayOutputStream()
+                var hasContent = false
                 while (off + 3 <= data.size) { // minimum TLV header size (type + 2 bytes length)
                     val t = TLVType.from(data[off].toUByte()) ?: return null
                     off += 1
@@ -104,7 +106,7 @@ data class BitchatFilePacket(
                         len = ((data[off].toInt() and 0xFF) shl 8) or (data[off + 1].toInt() and 0xFF)
                         off += 2
                     }
-                    if (len < 0 || off + len > data.size) return null
+                    if (len < 0 || len > data.size - off) return null
                     val value = data.copyOfRange(off, off + len)
                     off += len
                     when (t) {
@@ -116,16 +118,15 @@ data class BitchatFilePacket(
                         }
                         TLVType.MIME_TYPE -> mime = String(value, Charsets.UTF_8)
                         TLVType.CONTENT -> {
-                            // Expect a single CONTENT TLV
-                            if (contentBytes == null) contentBytes = value else {
-                                // If multiple CONTENT TLVs appear, concatenate for tolerance
-                                contentBytes = (contentBytes!! + value)
-                            }
+                            if (contentStream.size().toLong() + value.size > com.bitchat.android.util.AppConstants.Media.MAX_FILE_SIZE_BYTES) return null
+                            contentStream.write(value)
+                            hasContent = true
                         }
                     }
                 }
                 val n = name ?: return null
-                val c = contentBytes ?: return null
+                if (!hasContent || off != data.size) return null
+                val c = contentStream.toByteArray()
                 val s = size ?: c.size.toLong()
                 val m = mime ?: "application/octet-stream"
                 val result = BitchatFilePacket(n, s, m, c)

@@ -109,7 +109,7 @@ fun MeshPeerListSheet(
                         }
 
                         items(
-                            items = joinedChannels.toList().sortedBy { if (it == "official_updates") 0 else 1 },
+                            items = joinedChannels.toList().sorted(),
                             key = { "channel_$it" }
                         ) { channel ->
                             val isSelected = channel == currentChannel
@@ -215,28 +215,12 @@ fun MeshChannelRow(
     onChannelClick: () -> Unit,
     onLeaveChannel: () -> Unit,
 ) {
-    val isOfficial = channel == "official_updates"
-    val isBroadcast = channel.startsWith("#broadcast_")
-    val displayName = when {
-        isOfficial -> "\uD83D\uDCE2 Official Updates"
-        isBroadcast -> {
-            "\uD83D\uDCE2 " + channel
-                .removePrefix("#broadcast_")
-                .split("_")
-                .drop(1)
-                .joinToString(" ")
-                .replaceFirstChar { it.uppercase() }
-                .ifEmpty { "Broadcast Channel" }
-        }
-        else -> channel
-    }
-    
+    val displayName = channel.removePrefix("#")
+
     Surface(
         onClick = onChannelClick,
         color = if (isSelected) {
             colorScheme.primaryContainer.copy(alpha = 0.15f)
-        } else if (isOfficial) {
-            Color(0xFF1A2330) // WhatsApp dark mode tint for pinned/distinct channels
         } else {
             Color.Transparent
         },
@@ -280,12 +264,7 @@ fun MeshChannelRow(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Leave channel button (hide for official_updates)
-                if (!isOfficial) {
-                    CloseButton(
-                        onClick = onLeaveChannel,
-                    )
-                }
+                CloseButton(onClick = onLeaveChannel)
             }
         }
     }

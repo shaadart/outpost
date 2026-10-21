@@ -152,8 +152,8 @@ fun MessageItem(
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
-            val isSelf = message.senderPeerID == meshService.myPeerID || message.sender == currentUserNickname || message.sender.startsWith("$currentUserNickname#")
-            val isOfficial = message.sender == "system" || message.isVerified
+            val isSelf = message.senderPeerID == meshService.myPeerID || (message.senderPeerID == null && message.sender == currentUserNickname)
+            val isOfficial = message.senderPeerID == null && message.sender == "system"
             val bubbleColor = when {
                 isSelf -> Color(0xFF1E3A5F)
                 isOfficial -> Color(0xFF0F2B4A)
@@ -173,7 +173,7 @@ fun MessageItem(
                 verticalAlignment = Alignment.Top
             ) {
                 // Provide a small end padding for own private messages so overlay doesn't cover text
-                val endPad = if (message.isPrivate && message.sender == currentUserNickname) 16.dp else 0.dp
+                val endPad = if (message.isPrivate && (message.senderPeerID == meshService.myPeerID || (message.senderPeerID == null && message.sender == currentUserNickname))) 16.dp else 0.dp
                 
                 Surface(
                     shape = bubbleShape,
@@ -219,7 +219,7 @@ fun MessageItem(
             }
 
             // Delivery status for private messages (overlay, non-displacing)
-            if (message.isPrivate && message.sender == currentUserNickname) {
+            if (message.isPrivate && (message.senderPeerID == meshService.myPeerID || (message.senderPeerID == null && message.sender == currentUserNickname))) {
                 message.deliveryStatus?.let { status ->
                     Box(
                         modifier = Modifier
@@ -416,9 +416,7 @@ fun MessageItem(
         )
         
         // Check if this message was sent by self to avoid click interactions on own nickname
-        val isSelf = message.senderPeerID == meshService.myPeerID || 
-                     message.sender == currentUserNickname ||
-                     message.sender.startsWith("$currentUserNickname#")
+        val isSelf = message.senderPeerID == meshService.myPeerID || (message.senderPeerID == null && message.sender == currentUserNickname)
         
         val haptic = LocalHapticFeedback.current
         val context = LocalContext.current

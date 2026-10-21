@@ -25,6 +25,9 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.bitchat.android.features.media.ImageUtils
 import java.io.File
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -33,14 +36,17 @@ fun ImagePickerButton(
     onImageReady: (String) -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var capturedImagePath by remember { mutableStateOf<String?>(null) }
     
     val imagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: android.net.Uri? ->
         if (uri != null) {
-            val outPath = ImageUtils.downscaleAndSaveToAppFiles(context, uri)
-            if (!outPath.isNullOrBlank()) onImageReady(outPath)
+            scope.launch {
+                val outPath = withContext(Dispatchers.IO) { ImageUtils.downscaleAndSaveToAppFiles(context, uri) }
+                if (!outPath.isNullOrBlank()) onImageReady(outPath)
+            }
         }
     }
     
@@ -50,11 +56,13 @@ fun ImagePickerButton(
         val path = capturedImagePath
         if (success && !path.isNullOrBlank()) {
             // Downscale + correct orientation, then send; delete original
-            val outPath = com.bitchat.android.features.media.ImageUtils.downscalePathAndSaveToAppFiles(context, path)
-            if (!outPath.isNullOrBlank()) {
-                onImageReady(outPath)
+            scope.launch {
+                val outPath = withContext(Dispatchers.IO) {
+                    try { ImageUtils.downscalePathAndSaveToAppFiles(context, path) }
+                    finally { File(path).delete() }
+                }
+                if (!outPath.isNullOrBlank()) onImageReady(outPath)
             }
-            runCatching { File(path).delete() }
         } else {
             // Cleanup on cancel/failure
             path?.let { runCatching { File(it).delete() } }

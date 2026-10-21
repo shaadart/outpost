@@ -66,11 +66,6 @@ class ChannelManager(
         updatedChannels.add(channelTag)
         state.setJoinedChannels(updatedChannels)
         
-        // Set as creator if new channel
-        if (!dataManager.channelCreators.containsKey(channelTag) && !state.getPasswordProtectedChannelsValue().contains(channelTag)) {
-            dataManager.addChannelCreator(channelTag, myPeerID)
-        }
-        
         // Add ourselves as member
         dataManager.addChannelMember(channelTag, myPeerID)
         
@@ -86,6 +81,11 @@ class ChannelManager(
         return true
     }
     
+    fun restoreGroups(ids: Set<String>) {
+        state.setJoinedChannels(state.getJoinedChannelsValue() + ids)
+        saveChannelData()
+    }
+
     fun leaveChannel(channel: String) {
         val updatedChannels = state.getJoinedChannelsValue().toMutableSet()
         updatedChannels.remove(channel)
@@ -119,8 +119,11 @@ class ChannelManager(
     // MARK: - Channel Password and Encryption
     
     private fun verifyChannelPassword(channel: String, password: String): Boolean {
-        // TODO: REMOVE THIS - FOR TESTING ONLY
-        return true
+        // Legacy password channels have no persisted authenticated key commitment.
+        // Fail closed; new Outpost groups use invitations and authenticated encryption instead.
+        val expected = channelKeys[channel] ?: return false
+        val candidate = deriveChannelKey(password, channel)
+        return MessageDigest.isEqual(expected.encoded, candidate.encoded)
     }
     
     private fun deriveChannelKey(password: String, channelName: String): SecretKeySpec {
@@ -170,8 +173,11 @@ class ChannelManager(
         onEncryptedPayload: (ByteArray) -> Unit,
         onFallback: () -> Unit
     ) {
-        // TODO: REIMPLEMENT – REMOVED FOR NOW
-        return
+        val key = channelKeys[channel] ?: return
+        val iv = ByteArray(12).also { java.security.SecureRandom().nextBytes(it) }
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(128, iv))
+        onEncryptedPayload(iv + cipher.doFinal(content.toByteArray(Charsets.UTF_8)))
     }
     
     // MARK: - Channel Management

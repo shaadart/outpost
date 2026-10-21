@@ -139,6 +139,17 @@ fun FullScreenImageViewer(imagePaths: List<String>, initialIndex: Int = 0, onClo
 }
 
 private fun saveToDownloads(context: android.content.Context, path: String) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+        runCatching {
+            val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", File(path))
+            context.startActivity(android.content.Intent.createChooser(android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                type = "image/*"
+                putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }, "Save or share image"))
+        }.onFailure { Toast.makeText(context, context.getString(R.string.toast_failed_to_save_image), Toast.LENGTH_SHORT).show() }
+        return
+    }
     runCatching {
         val name = File(path).name
         val mime = when {

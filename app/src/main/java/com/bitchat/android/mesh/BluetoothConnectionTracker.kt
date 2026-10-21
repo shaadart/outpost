@@ -60,7 +60,7 @@ class BluetoothConnectionTracker(
     
     override fun disconnect(id: String) {
         connectedDevices[id]?.gatt?.let {
-            try { it.disconnect() } catch (_: Exception) { }
+            try { it.disconnectSafely() } catch (_: Exception) { }
         }
         cleanupDeviceConnection(id)
         Log.d(TAG, "Requested disconnect for $id")
@@ -245,16 +245,16 @@ class BluetoothConnectionTracker(
      * Clean up all connections
      */
     private fun cleanupAllConnections() {
-        connectedDevices.values.forEach { deviceConn ->
-            deviceConn.gatt?.disconnect()
-        }
-        
+        // Snapshot before stop() clears the maps; delayed cleanup must still close these handles.
+        val connections = connectedDevices.values.toList()
+        connections.forEach { it.gatt?.disconnectSafely() }
+
         connectionScope.launch {
             delay(CLEANUP_DELAY)
             
-            connectedDevices.values.forEach { deviceConn ->
+            connections.forEach { deviceConn ->
                 try {
-                    deviceConn.gatt?.close()
+                    deviceConn.gatt?.closeSafely()
                 } catch (e: Exception) {
                     Log.w(TAG, "Error closing GATT during cleanup: ${e.message}")
                 }

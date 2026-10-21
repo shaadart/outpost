@@ -67,7 +67,9 @@ fun ActionMenuSheet(
     onDismiss: () -> Unit,
     onOpenProfile: () -> Unit,
     onScanQR: () -> Unit,
-    onCreateBroadcast: () -> Unit,
+    onCreateGroup: () -> Unit,
+    onJoinGroup: () -> Unit,
+    onNewChat: () -> Unit,
     onShareApp: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -99,6 +101,12 @@ fun ActionMenuSheet(
 
             ActionMenuItem(
                 icon = Icons.Filled.Person,
+                title = "New chat",
+                subtitle = "Message someone nearby",
+                onClick = { onDismiss(); onNewChat() }
+            )
+            ActionMenuItem(
+                icon = Icons.Filled.Person,
                 title = "Profile",
                 subtitle = "Change name / View my QR",
                 onClick = {
@@ -110,7 +118,7 @@ fun ActionMenuSheet(
             ActionMenuItem(
                 icon = Icons.Outlined.QrCodeScanner,
                 title = "Scan QR",
-                subtitle = "Add a friend or join a channel",
+                subtitle = "Verify a person or join a group",
                 onClick = {
                     onDismiss()
                     onScanQR()
@@ -119,14 +127,20 @@ fun ActionMenuSheet(
 
             ActionMenuItem(
                 icon = Icons.Outlined.Campaign,
-                title = "New Broadcast Channel",
-                subtitle = "Create an announcement group",
+                title = "New group",
+                subtitle = "Chat together using a private invitation",
                 onClick = {
                     onDismiss()
-                    onCreateBroadcast()
+                    onCreateGroup()
                 }
             )
 
+            ActionMenuItem(
+                icon = Icons.Outlined.QrCodeScanner,
+                title = "Join group",
+                subtitle = "Paste an invitation link",
+                onClick = { onDismiss(); onJoinGroup() }
+            )
             ActionMenuItem(
                 icon = Icons.Outlined.Share,
                 title = "Share App Offline",
@@ -187,181 +201,7 @@ private fun ActionMenuItem(
     }
 }
 
-@Composable
-fun BroadcastCreationDialog(
-    isPresented: Boolean,
-    onDismiss: () -> Unit,
-    onCreate: (String) -> Unit
-) {
-    if (!isPresented) return
-
-    var channelName by remember { mutableStateOf("") }
-
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Surface(
-            shape = RoundedCornerShape(24.dp),
-            color = Color(0xFF131A22),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(32.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp)
-            ) {
-                Text(
-                    text = "New Broadcast Channel",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                OutlinedTextField(
-                    value = channelName,
-                    onValueChange = { channelName = it.take(50) },
-                    label = { Text("Channel Name") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFF3B82F6),
-                        cursorColor = Color(0xFF3B82F6),
-                        focusedLabelColor = Color(0xFF3B82F6)
-                    )
-                )
-                Spacer(modifier = Modifier.height(24.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(onClick = onDismiss) {
-                        Text("Cancel", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Button(
-                        onClick = {
-                            if (channelName.trim().isNotEmpty()) {
-                                onCreate(channelName.trim())
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF3B82F6)
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text("Create", fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun BroadcastQRSheet(
-    isPresented: Boolean,
-    onDismiss: () -> Unit,
-    channelId: String,
-    channelName: String,
-    qrBitmap: Bitmap?
-) {
-    if (!isPresented) return
-
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface,
-        dragHandle = { BottomSheetDefaults.DragHandle() }
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 16.dp)
-                .windowInsetsPadding(WindowInsets.navigationBars),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = "Broadcast Channel Created",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = channelName,
-                style = MaterialTheme.typography.bodyLarge,
-                color = Color(0xFF3B82F6),
-                textAlign = TextAlign.Center
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-
-            if (qrBitmap != null) {
-                Image(
-                    bitmap = qrBitmap.asImageBitmap(),
-                    contentDescription = "Channel QR Code",
-                    modifier = Modifier
-                        .size(220.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(Color.White)
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = "Share this QR code so others can join",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                    textAlign = TextAlign.Center
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-            Button(
-                onClick = onDismiss,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF3B82F6)
-                ),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Done", fontWeight = FontWeight.Bold)
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-    }
-}
-
-fun generateBroadcastQR(channelId: String, channelName: String): Bitmap? {
-    val qrContent = "broadcast_invite:$channelId:$channelName"
-    val size = 512
-    return try {
-        val writer = QRCodeWriter()
-        val bitMatrix: BitMatrix = writer.encode(qrContent, BarcodeFormat.QR_CODE, size, size)
-        val bitmap = createBitmap(size, size)
-        for (x in 0 until size) {
-            for (y in 0 until size) {
-                bitmap[x, y] = if (bitMatrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE
-            }
-        }
-        bitmap
-    } catch (e: Exception) {
-        null
-    }
-}
-
-fun parseBroadcastInvite(code: String): Pair<String, String>? {
-    val parts = code.split(":", limit = 3)
-    if (parts.size == 3 && parts[0] == "broadcast_invite") {
-        return Pair(parts[1], parts[2])
-    }
-    return null
-}
-
+@androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun ScannerPanel(
@@ -385,7 +225,9 @@ fun ScannerPanel(
     val cameraProvider by produceState<ProcessCameraProvider?>(null) {
         cameraProviderFuture.addListener({ value = cameraProviderFuture.get() }, ContextCompat.getMainExecutor(context))
     }
-    var codeScanned by remember { mutableStateOf(false) }
+    val analyzing = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
+    var lastCode by remember { mutableStateOf<String?>(null) }
+    val currentOnScanResult by rememberUpdatedState(onScanResult)
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
     val surfaceRequests = remember { MutableStateFlow<SurfaceRequest?>(null) }
@@ -411,18 +253,18 @@ fun ScannerPanel(
                 analysis.setAnalyzer(executor) { imageProxy: ImageProxy ->
                     @androidx.camera.core.ExperimentalGetImage
                     val mediaImage = imageProxy.image
-                    if (mediaImage != null && !codeScanned) {
-                        codeScanned = true
+                    if (mediaImage != null && analyzing.compareAndSet(false, true)) {
                         val inputImage = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
                         barcodeScanner.process(inputImage)
                             .addOnSuccessListener { barcodes ->
-                                for (barcode in barcodes) {
-                                    barcode.rawValue?.let { value ->
-                                        onScanResult(value)
-                                    }
+                                val value = barcodes.firstNotNullOfOrNull { it.rawValue }
+                                if (value != null && value != lastCode) {
+                                    lastCode = value
+                                    currentOnScanResult(value)
                                 }
                             }
                             .addOnCompleteListener {
+                                analyzing.set(false)
                                 imageProxy.close()
                             }
                     } else {
@@ -441,6 +283,8 @@ fun ScannerPanel(
                 }
 
                 onDispose {
+                    analysis.clearAnalyzer()
+                    barcodeScanner.close()
                     executor.shutdown()
                     runCatching { cameraProvider!!.unbindAll() }
                 }

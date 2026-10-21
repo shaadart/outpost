@@ -1,5 +1,7 @@
 package com.bitchat.android.mesh
 
+import com.bitchat.android.groups.GroupMessageCodec
+import com.bitchat.android.groups.GroupRepository
 import android.content.Context
 import android.util.Log
 import com.bitchat.android.crypto.EncryptionService
@@ -333,9 +335,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 return encryptionService.verifyEd25519Signature(signature, data, publicKey)
             }
             
-            override fun processOfficialBroadcast(payload: ByteArray): Pair<Boolean, ByteArray>? {
-                return securityManager.processOfficialBroadcast(payload)
-            }
+
             
             // Noise protocol operations
             override fun hasNoiseSession(peerID: String): Boolean {
@@ -768,15 +768,21 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
      */
     fun sendMessage(content: String, mentions: List<String> = emptyList(), channel: String? = null) {
         if (content.isEmpty()) return
+        val sentAt = System.currentTimeMillis()
         
         serviceScope.launch {
+            if (!com.bitchat.android.services.AppStateStore.accepts(sentAt, channel = channel)) return@launch
+            val payload = if (channel != null) {
+                val group = GroupRepository.getInstance(context).get(channel) ?: return@launch
+                GroupMessageCodec.encrypt(channel, group.keyBytes(), content.toByteArray(Charsets.UTF_8))
+            } else content.toByteArray(Charsets.UTF_8)
             val packet = BitchatPacket(
-                version = 1u,
+                version = if (channel == null) 1u else 2u,
                 type = MessageType.MESSAGE.value,
                 senderID = hexStringToByteArray(myPeerID),
                 recipientID = SpecialRecipients.BROADCAST,
-                timestamp = System.currentTimeMillis().toULong(),
-                payload = content.toByteArray(Charsets.UTF_8),
+                timestamp = sentAt.toULong(),
+                payload = payload,
                 signature = null,
                 ttl = MAX_TTL
             )
@@ -792,14 +798,18 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     /**
      * Send a file over mesh as a broadcast MESSAGE (public mesh timeline/channels).
      */
-    fun sendFileBroadcast(file: com.bitchat.android.model.BitchatFilePacket) {
+    fun sendFileBroadcast(file: com.bitchat.android.model.BitchatFilePacket, channel: String? = null) {
         try {
             Log.d(TAG, "📤 sendFileBroadcast: name=${file.fileName}, size=${file.fileSize}")
-            val payload = file.encode()
-            if (payload == null) {
+            val rawPayload = file.encode()
+            if (rawPayload == null) {
                 Log.e(TAG, "❌ Failed to encode file packet in sendFileBroadcast")
                 return
             }
+            val payload = if (channel != null) {
+                val group = GroupRepository.getInstance(context).get(channel) ?: return
+                GroupMessageCodec.encrypt(channel, group.keyBytes(), rawPayload, isFile = true)
+            } else rawPayload
             Log.d(TAG, "📦 Encoded payload: ${payload.size} bytes")
         serviceScope.launch {
             val packet = BitchatPacket(
@@ -814,7 +824,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             )
             val signed = signPacketBeforeBroadcast(packet)
             // Use a stable transferId based on the file TLV payload for progress tracking
-            val transferId = sha256Hex(payload)
+            val transferId = sha256Hex(rawPayload)
             broadcastRoutedPacket(RoutedPacket(signed, transferId = transferId))
             try { gossipSyncManager.onPublicPacketSeen(signed) } catch (_: Exception) { }
         }

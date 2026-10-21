@@ -407,6 +407,9 @@ class BluetoothPacketBroadcaster(
                 val result = gattServer?.notifyCharacteristicChanged(device, char, false) ?: false
                 result
             } ?: false
+        } catch (e: SecurityException) {
+            Log.w(TAG, "Bluetooth access revoked during notify", e)
+            false
         } catch (e: Exception) {
             Log.w(TAG, "Error sending to server connection ${device.address}: ${e.message}")
             connectionScope.launch {
@@ -431,6 +434,9 @@ class BluetoothPacketBroadcaster(
                 val result = deviceConn.gatt?.writeCharacteristic(char) ?: false
                 result
             } ?: false
+        } catch (e: SecurityException) {
+            Log.w(TAG, "Bluetooth access revoked during write", e)
+            false
         } catch (e: Exception) {
             Log.w(TAG, "Error sending to client connection ${deviceConn.device.address}: ${e.message}")
             connectionScope.launch {

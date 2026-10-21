@@ -33,8 +33,6 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <!-- Connected device foreground service type for BLE operations (API 34+) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
-    <!-- Data sync foreground service type (required when declaring dataSync) -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <!-- Location foreground service type required for BLE scanning in background -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
@@ -45,10 +43,6 @@
     <uses-permission android:name="android.permission.CAMERA" />
 
     <!-- Storage permissions for file sharing -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
-    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
 
     <!-- Haptic feedback permission -->
     <uses-permission android:name="android.permission.VIBRATE" />
@@ -110,25 +104,21 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="bitchat" android:host="verify" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="outpost" android:host="group" />
+            </intent-filter>
         </activity>
 
         <!-- Persistent foreground service to run the mesh in background -->
         <service
             android:name=".service.MeshForegroundService"
             android:exported="false"
-            android:foregroundServiceType="connectedDevice|dataSync|location"
+            android:foregroundServiceType="connectedDevice|location"
             tools:ignore="DataExtractionRules">
         </service>
-
-        <!-- Listen for in-app broadcast when POST_NOTIFICATIONS is granted -->
-        <receiver
-            android:name=".service.NotificationPermissionChangedReceiver"
-            android:enabled="true"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="com.bitchat.android.action.NOTIFICATION_PERMISSION_GRANTED" />
-            </intent-filter>
-        </receiver>
 
         <!-- Auto-start mesh service after boot if enabled -->
         <receiver
@@ -137,7 +127,6 @@
             android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
     </application>

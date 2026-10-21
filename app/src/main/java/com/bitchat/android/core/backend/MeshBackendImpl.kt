@@ -86,10 +86,6 @@ class MeshBackendImpl(
         targetChannel: String?,
         mentions: List<String>
     ) {
-        if (targetChannel == "official_updates") {
-            return
-        }
-
         if (targetPeerId != null) {
             val recipientNickname = chatState.peerNicknames.value[targetPeerId] ?: targetPeerId
             privateChatManager.sendPrivateMessage(

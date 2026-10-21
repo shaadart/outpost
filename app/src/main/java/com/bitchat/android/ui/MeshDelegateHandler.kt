@@ -26,6 +26,7 @@ class MeshDelegateHandler(
 
     override fun didReceiveMessage(message: BitchatMessage) {
         coroutineScope.launch {
+            if (!com.bitchat.android.services.AppStateStore.accepts(message)) return@launch
             // FIXED: Deduplicate messages from dual connection paths
             val messageKey = messageManager.generateMessageKey(message)
             if (messageManager.isMessageProcessed(messageKey)) {
@@ -296,42 +297,42 @@ class MeshDelegateHandler(
         val senderPeerID = message.senderPeerID
         val shouldSendReadReceipt = !isAppInBackground && senderPeerID != null && currentPrivateChatPeer == senderPeerID
         
-            if (shouldSendReadReceipt) {
-                android.util.Log.d("MeshDelegateHandler", "Sending reactive read receipt for focused chat with $senderPeerID (message=${message.id})")
-                val nickname = state.getNicknameValue() ?: "unknown"
-                val mesh = getMeshService()
-                val sent = try {
-                    val hasMesh = mesh.getPeerInfo(senderPeerID!!)?.isConnected == true && mesh.hasEstablishedSession(senderPeerID)
-                    if (hasMesh) {
-                        mesh.sendReadReceipt(message.id, senderPeerID, nickname)
-                        true
-                    } else {
-                        false
-                    }
-                } catch (_: Exception) {
+        if (shouldSendReadReceipt) {
+            android.util.Log.d("MeshDelegateHandler", "Sending reactive read receipt for focused chat with $senderPeerID (message=${message.id})")
+            val nickname = state.getNicknameValue() ?: "unknown"
+            val mesh = getMeshService()
+            val sent = try {
+                val hasMesh = mesh.getPeerInfo(senderPeerID!!)?.isConnected == true && mesh.hasEstablishedSession(senderPeerID)
+                if (hasMesh) {
+                    mesh.sendReadReceipt(message.id, senderPeerID, nickname)
+                    true
+                } else {
                     false
                 }
-                if (sent) {
-                    // Ensure unread badge is cleared for this peer immediately
-                    try {
-                        val current = state.getUnreadPrivateMessagesValue().toMutableSet()
-                        if (current.remove(senderPeerID)) {
-                            state.setUnreadPrivateMessages(current)
-                        }
-                    } catch (_: Exception) { }
-                }
-            } else {
-                android.util.Log.d("MeshDelegateHandler", "Skipping read receipt - chat not focused (background: $isAppInBackground, current peer: $currentPrivateChatPeer, sender: $senderPeerID)")
+            } catch (_: Exception) {
+                false
             }
+            if (sent) {
+                // Ensure unread badge is cleared for this peer immediately
+                try {
+                    val current = state.getUnreadPrivateMessagesValue().toMutableSet()
+                    if (current.remove(senderPeerID)) {
+                        state.setUnreadPrivateMessages(current)
+                    }
+                } catch (_: Exception) { }
+            }
+        } else {
+            android.util.Log.d("MeshDelegateHandler", "Skipping read receipt - chat not focused (background: $isAppInBackground, current peer: $currentPrivateChatPeer, sender: $senderPeerID)")
         }
-    
-    // registerPeerPublicKey REMOVED - fingerprints now handled centrally in PeerManager
+    }
 
-    /**
-     * Expose mesh peer info for components that need to resolve identities (e.g., Nostr mapping)
-     */
-    fun getPeerInfo(peerID: String): com.bitchat.android.mesh.PeerInfo? {
-        return getMeshService().getPeerInfo(peerID)
+// registerPeerPublicKey REMOVED - fingerprints now handled centrally in PeerManager
+
+/**
+ * Expose mesh peer info for components that need to resolve identities (e.g., Nostr mapping)
+ */
+fun getPeerInfo(peerID: String): com.bitchat.android.mesh.PeerInfo? {
+    return getMeshService().getPeerInfo(peerID)
     }
 
 }

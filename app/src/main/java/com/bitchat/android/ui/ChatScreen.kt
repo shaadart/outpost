@@ -1,784 +1,302 @@
 package com.bitchat.android.ui
 
-import android.util.Log
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
-import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.bitchat.android.R
-import com.bitchat.android.geohash.ChannelID
+import com.bitchat.android.groups.GroupInvite
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.services.VerificationService
-import java.text.SimpleDateFormat
-import java.util.*
+import com.bitchat.android.util.hexEncodedString
 import kotlinx.coroutines.launch
-
-enum class ChatViewState {
-    INBOX,
-    CHAT
-}
+import java.text.DateFormat
 
 private data class InboxItem(
-        val id: String,
-        val title: String,
-        val subtitle: String,
-        val timestamp: String,
-        val unreadCount: Int,
-        val isPinned: Boolean,
-        val isPrivate: Boolean
+    val id: String,
+    val title: String,
+    val messages: List<BitchatMessage>,
+    val unread: Int = 0,
+    val isPrivate: Boolean = false
 )
 
 @Composable
-fun ChatScreen(viewModel: ChatViewModel) {
+fun ChatScreen(viewModel: ChatViewModel, initialGroupLink: String? = null, onGroupLinkHandled: () -> Unit = {}) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-    val colorScheme = MaterialTheme.colorScheme
-    val timeFormatter = remember { SimpleDateFormat("h:mm a", Locale.getDefault()) }
-
+    val scope = rememberCoroutineScope()
+    val historyReady by com.bitchat.android.services.AppStateStore.historyReady.collectAsStateWithLifecycle()
+    val historyError by com.bitchat.android.services.AppStateStore.historyError.collectAsStateWithLifecycle()
     val nickname by viewModel.nickname.collectAsStateWithLifecycle()
     val publicMessages by viewModel.messages.collectAsStateWithLifecycle()
     val privateChats by viewModel.privateChats.collectAsStateWithLifecycle()
     val channelMessages by viewModel.channelMessages.collectAsStateWithLifecycle()
-    val joinedChannels by viewModel.joinedChannels.collectAsStateWithLifecycle()
-    val unreadPrivateMessages by viewModel.unreadPrivateMessages.collectAsStateWithLifecycle()
-    val unreadChannelMessages by viewModel.unreadChannelMessages.collectAsStateWithLifecycle()
-    val peerNicknames by viewModel.peerNicknames.collectAsStateWithLifecycle()
-    val connectedPeers by viewModel.connectedPeers.collectAsStateWithLifecycle()
-    val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
-
-    var currentView by remember { mutableStateOf(ChatViewState.INBOX) }
-    var selectedConvId by remember { mutableStateOf<String?>(null) }
-    var selectedConvIsPrivate by remember { mutableStateOf(false) }
-    var isOfficialUpdates by remember { mutableStateOf(false) }
-    var isBroadcastConv by remember { mutableStateOf(false) }
-    var showPanicWipe by remember { mutableStateOf(false) }
-    var showLocationChannelsSheet by remember { mutableStateOf(false) }
-    var showProfileSettingsSheet by remember { mutableStateOf(false) }
-    var showActionMenuSheet by remember { mutableStateOf(false) }
-    var showBroadcastCreationDialog by remember { mutableStateOf(false) }
-    var showBroadcastQRSheet by remember { mutableStateOf(false) }
-    var showScannerPanel by remember { mutableStateOf(false) }
-    var newBroadcastChannelId by remember { mutableStateOf("") }
-    var newBroadcastChannelName by remember { mutableStateOf("") }
-    var broadcastQRBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
-    var messageText by remember { mutableStateOf(TextFieldValue("")) }
-
-    val inboxItems =
-            remember(
-                    publicMessages,
-                    privateChats,
-                    channelMessages,
-                    joinedChannels,
-                    unreadChannelMessages,
-                    unreadPrivateMessages,
-                    peerNicknames
-            ) {
-                val items = mutableListOf<InboxItem>()
-
-                if ("official_updates" in joinedChannels) {
-                    val msgs = channelMessages["official_updates"] ?: emptyList()
-                    val last = msgs.lastOrNull()
-                    items.add(
-                            InboxItem(
-                                    id = "official_updates",
-                                    title = "\uD83D\uDCE2 CJP Official Updates",
-                                    subtitle = last?.content ?: "No messages yet",
-                                    timestamp = last?.let { timeFormatter.format(it.timestamp) }
-                                                    ?: "",
-                                    unreadCount = unreadChannelMessages["official_updates"] ?: 0,
-                                    isPinned = true,
-                                    isPrivate = false
-                            )
-                    )
-                }
-
-                val lastPublic = publicMessages.lastOrNull()
-                items.add(
-                        InboxItem(
-                                id = "local_radius",
-                                title = "\uD83D\uDCCD Local Radius Chatter",
-                                subtitle = lastPublic?.content ?: "No messages yet",
-                                timestamp = lastPublic?.let { timeFormatter.format(it.timestamp) }
-                                                ?: "",
-                                unreadCount = 0,
-                                isPinned = false,
-                                isPrivate = false
-                        )
-                )
-
-                joinedChannels.forEach { channelId ->
-                    if (channelId.startsWith("#broadcast_")) {
-                        val msgs = channelMessages[channelId] ?: emptyList()
-                        val last = msgs.lastOrNull()
-                        val title =
-                                channelId
-                                        .removePrefix("#broadcast_")
-                                        .split("_")
-                                        .drop(1)
-                                        .joinToString(" ")
-                                        .replaceFirstChar { it.uppercase() }
-                                        .ifEmpty { "Broadcast Channel" }
-                        items.add(
-                                InboxItem(
-                                        id = channelId,
-                                        title = "\uD83D\uDCE2 $title",
-                                        subtitle =
-                                                last?.let {
-                                                    if (it.senderPeerID == viewModel.myPeerID ||
-                                                                    it.sender == nickname
-                                                    )
-                                                            "You: ${it.content}"
-                                                    else it.content
-                                                }
-                                                        ?: "No messages yet",
-                                        timestamp = last?.let { timeFormatter.format(it.timestamp) }
-                                                        ?: "",
-                                        unreadCount = unreadChannelMessages[channelId] ?: 0,
-                                        isPinned = false,
-                                        isPrivate = false
-                                )
-                        )
-                    }
-                }
-
-                privateChats.forEach { (peerId, msgs) ->
-                    val last = msgs.lastOrNull()
-                    val displayName = peerNicknames[peerId] ?: peerId
-                    items.add(
-                            InboxItem(
-                                    id = peerId,
-                                    title = displayName,
-                                    subtitle =
-                                            last?.let {
-                                                if (it.senderPeerID == viewModel.myPeerID ||
-                                                                it.sender == nickname
-                                                )
-                                                        "You: ${it.content}"
-                                                else it.content
-                                            }
-                                                    ?: "No messages yet",
-                                    timestamp = last?.let { timeFormatter.format(it.timestamp) }
-                                                    ?: "",
-                                    unreadCount = if (peerId in unreadPrivateMessages) 1 else 0,
-                                    isPinned = false,
-                                    isPrivate = true
-                            )
-                    )
-                }
-                items.toList()
-            }
-
-    val displayMessages: List<BitchatMessage> =
-            when {
-                selectedConvId == null -> emptyList()
-                isOfficialUpdates -> channelMessages["official_updates"] ?: emptyList()
-                isBroadcastConv && selectedConvId != null -> channelMessages[selectedConvId]
-                                ?: emptyList()
-                selectedConvIsPrivate -> privateChats[selectedConvId] ?: emptyList()
-                selectedLocationChannel is ChannelID.Location -> {
-                    val geoKey =
-                            "geo:${(selectedLocationChannel as ChannelID.Location).channel.geohash}"
-                    channelMessages[geoKey] ?: emptyList()
-                }
-                else -> publicMessages
-            }
-
-    val isReadOnly =
-            isOfficialUpdates ||
-                    (isBroadcastConv &&
-                            selectedConvId != null &&
-                            !viewModel.isChannelCreator(selectedConvId!!))
-
-    BackHandler(enabled = currentView == ChatViewState.CHAT) {
-        if (selectedConvIsPrivate && selectedConvId != null) {
-            viewModel.endPrivateChat()
-        }
-        if (isOfficialUpdates || isBroadcastConv) {
-            viewModel.switchToChannel(null)
-        }
-        if (selectedLocationChannel is ChannelID.Location) {
-            viewModel.selectLocationChannel(ChannelID.Mesh)
-        }
-        currentView = ChatViewState.INBOX
-        selectedConvId = null
+    val groupNames by viewModel.groupNames.collectAsStateWithLifecycle()
+    val unreadPrivate by viewModel.unreadPrivateMessages.collectAsStateWithLifecycle()
+    val unreadChannels by viewModel.unreadChannelMessages.collectAsStateWithLifecycle()
+    val peerNames by viewModel.peerNicknames.collectAsStateWithLifecycle()
+    val peers by viewModel.connectedPeers.collectAsStateWithLifecycle()
+    val selectedPeer by viewModel.selectedPrivateChatPeer.collectAsStateWithLifecycle()
+    val selectedChannel by viewModel.currentChannel.collectAsStateWithLifecycle()
+    val operationError by viewModel.operationError.collectAsStateWithLifecycle()
+    var publicChatOpen by rememberSaveable { mutableStateOf(false) }
+    var showActions by remember { mutableStateOf(false) }
+    var showProfile by remember { mutableStateOf(false) }
+    var showPeople by remember { mutableStateOf(false) }
+    var showCreate by remember { mutableStateOf(false) }
+    var showJoin by remember { mutableStateOf(false) }
+    var showScanner by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
+    var confirmClear by remember { mutableStateOf(false) }
+    var confirmLeave by remember { mutableStateOf(false) }
+    var confirmWipe by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    var inviteInput by remember { mutableStateOf("") }
+    var shareInvite by remember { mutableStateOf<GroupInvite?>(null) }
+    var messageText by remember(selectedPeer, selectedChannel, publicChatOpen) { mutableStateOf(TextFieldValue("")) }
+    val snackbar = remember { SnackbarHostState() }
+    val inChat = selectedPeer != null || selectedChannel != null || publicChatOpen
+    val title = selectedPeer?.let { peerNames[it] ?: it }
+        ?: selectedChannel?.let { groupNames[it] ?: it.removePrefix("#") }
+        ?: if (publicChatOpen) "Nearby chat" else "Outpost"
+    val displayed = when {
+        selectedPeer != null -> privateChats[selectedPeer].orEmpty()
+        selectedChannel != null -> channelMessages[selectedChannel].orEmpty()
+        publicChatOpen -> publicMessages
+        else -> emptyList()
     }
 
-    Box(
-            modifier =
-                    Modifier.fillMaxSize()
-                            .background(colorScheme.background)
-                            .windowInsetsPadding(WindowInsets.ime)
-    ) {
-        Column(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars)) {
-            val headerTitle =
-                    when {
-                        selectedConvId == null -> "Outpost"
-                        isOfficialUpdates -> "\uD83D\uDCE2 CJP Official Updates"
-                        isBroadcastConv && selectedConvId != null -> {
-                            selectedConvId!!
-                                    .removePrefix("#broadcast_")
-                                    .split("_")
-                                    .drop(1)
-                                    .joinToString(" ")
-                                    .replaceFirstChar { it.uppercase() }
-                                    .ifEmpty { "Broadcast Channel" }
-                        }
-                        selectedConvIsPrivate -> peerNicknames[selectedConvId]
-                                        ?: selectedConvId ?: "Chat"
-                        selectedLocationChannel is ChannelID.Location -> {
-                            val loc = selectedLocationChannel as ChannelID.Location
-                            loc.channel.displayName
-                        }
-                        else -> "\uD83D\uDCCD Local Radius Chatter"
-                    }
+    fun closeChat() {
+        viewModel.endPrivateChat()
+        viewModel.switchToChannel(null)
+        publicChatOpen = false
+    }
 
-            MeshChatHeader(
-                    showBack = currentView == ChatViewState.CHAT,
-                    title = headerTitle,
-                    onBack = {
-                        if (selectedConvIsPrivate && selectedConvId != null) {
-                            viewModel.endPrivateChat()
+    fun openPrivate(id: String) {
+        publicChatOpen = false
+        viewModel.switchToChannel(null)
+        viewModel.startPrivateChat(id)
+    }
+
+    BackHandler(enabled = inChat) { closeChat() }
+    LaunchedEffect(initialGroupLink) {
+        if (initialGroupLink != null) {
+            inviteInput = initialGroupLink
+            showJoin = true
+            onGroupLinkHandled()
+        }
+    }
+    LaunchedEffect(operationError) {
+        operationError?.let { snackbar.showSnackbar(it); viewModel.clearOperationError() }
+    }
+
+    Scaffold(
+        modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding(),
+        snackbarHost = { SnackbarHost(snackbar) },
+        topBar = {
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    MeshChatHeader(showBack = inChat, title = title, onBack = { closeChat() },
+                        onTripleShieldClick = { confirmWipe = true }, peerCount = peers.size,
+                        modifier = Modifier.weight(1f))
+                    Box {
+                        IconButton(onClick = { showMenu = true }) { Icon(Icons.Default.MoreVert, "Options") }
+                        DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                            DropdownMenuItem(text = { Text("Profile") }, onClick = { showMenu = false; showProfile = true })
+                            if (selectedChannel?.let(GroupInvite::isGroup) == true) {
+                                DropdownMenuItem(text = { Text("Invite people") }, onClick = {
+                                    showMenu = false
+                                    val channel = selectedChannel ?: return@DropdownMenuItem
+                                    scope.launch { shareInvite = viewModel.groupInvitation(channel) }
+                                })
+                                DropdownMenuItem(text = { Text("Leave group") }, onClick = { showMenu = false; confirmLeave = true })
+                            }
+                            if (inChat && historyReady) DropdownMenuItem(text = { Text("Clear chat") }, onClick = { showMenu = false; confirmClear = true })
+                            DropdownMenuItem(text = { Text("Notifications") }, onClick = {
+                                showMenu = false
+                                context.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                    .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName))
+                            })
+                            DropdownMenuItem(text = { Text("Connection permissions") }, onClick = {
+                                showMenu = false
+                                context.startActivity(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    android.net.Uri.fromParts("package", context.packageName, null)))
+                            })
+                            DropdownMenuItem(text = { Text("Erase account and all data") }, onClick = { showMenu = false; confirmWipe = true })
                         }
-                        if (isOfficialUpdates || isBroadcastConv) {
-                            viewModel.switchToChannel(null)
-                        }
-                        if (selectedLocationChannel is ChannelID.Location) {
-                            viewModel.selectLocationChannel(ChannelID.Mesh)
-                        }
-                        currentView = ChatViewState.INBOX
-                        selectedConvId = null
+                    }
+                }
+                HorizontalDivider()
+            }
+        },
+        floatingActionButton = {
+            if (!inChat) FloatingActionButton(onClick = { showActions = true }) { Icon(Icons.Default.Add, "New chat or group") }
+        }
+    ) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding)) {
+            if (!historyReady) {
+                Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+                    if (historyError == null) CircularProgressIndicator()
+                    else Text(historyError.orEmpty(), color = MaterialTheme.colorScheme.error)
+                }
+            } else if (inChat) {
+                historyError?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) }
+                Text(
+                    if (selectedPeer != null) "Private conversation · history stored encrypted on this device"
+                    else if (selectedChannel != null) "Encrypted group · invitation holders share access"
+                    else "Public nearby chat · visible to everyone on the mesh",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+                if (peers.isEmpty()) Text("No nearby connection. Delivery may be delayed.",
+                    Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall)
+                key(selectedPeer, selectedChannel, publicChatOpen) {
+                MessagesList(messages = displayed, currentUserNickname = nickname,
+                    meshService = viewModel.meshServiceFacade, modifier = Modifier.weight(1f),
+                    onCancelTransfer = { viewModel.cancelMediaSend(it.id) })
+                }
+                MessageInput(value = messageText, onValueChange = { messageText = it },
+                    onSend = {
+                        val text = messageText.text.trim()
+                        if (text.isNotBlank() && viewModel.sendMessage(text)) messageText = TextFieldValue("")
                     },
-                    onTripleShieldClick = { showPanicWipe = true },
-                    peerCount = connectedPeers.size
-            )
-
-            HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
-
-            when (currentView) {
-                ChatViewState.INBOX -> {
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        LazyColumn(
-                                modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(vertical = 4.dp)
-                        ) {
-                            items(items = inboxItems, key = { it.id }) { item ->
-                                InboxRow(
-                                        item = item,
-                                        onClick = {
-                                            selectedConvId = item.id
-                                            selectedConvIsPrivate = item.isPrivate
-                                            isOfficialUpdates = item.id == "official_updates"
-                                            isBroadcastConv = item.id.startsWith("#broadcast_")
-                                            if (item.isPrivate) {
-                                                viewModel.startPrivateChat(item.id)
-                                            }
-                                            if (item.id == "official_updates" ||
-                                                            item.id.startsWith("#broadcast_")
-                                            ) {
-                                                viewModel.switchToChannel(item.id)
-                                            }
-                                            currentView = ChatViewState.CHAT
-                                        }
-                                )
-                            }
-
-                            item(key = "discover_zones") {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Surface(
-                                        onClick = { showLocationChannelsSheet = true },
-                                        color = Color(0xFF1A2330),
-                                        shape = RoundedCornerShape(12.dp),
-                                        modifier =
-                                                Modifier.fillMaxWidth()
-                                                        .padding(
-                                                                horizontal = 16.dp,
-                                                                vertical = 4.dp
-                                                        )
-                                ) {
-                                    Row(
-                                            modifier =
-                                                    Modifier.fillMaxWidth()
-                                                            .padding(
-                                                                    horizontal = 16.dp,
-                                                                    vertical = 14.dp
-                                                            ),
-                                            verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(text = "\uD83D\uDCCD", fontSize = 18.sp)
-                                        Spacer(modifier = Modifier.width(12.dp))
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                    text = "Discover Local Zones",
-                                                    style = MaterialTheme.typography.bodyLarge,
-                                                    fontWeight = FontWeight.SemiBold,
-                                                    color = Color(0xFF3B82F6)
-                                            )
-                                            Text(
-                                                    text =
-                                                            "Join location-based chat zones near you",
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color =
-                                                            MaterialTheme.colorScheme.onSurface
-                                                                    .copy(alpha = 0.6f)
-                                            )
-                                        }
-                                        Text(
-                                                text = "\u2192",
-                                                color = Color(0xFF3B82F6),
-                                                fontSize = 20.sp,
-                                                fontWeight = FontWeight.Bold
-                                        )
-                                    }
+                    onSendVoiceNote = viewModel::sendVoiceNote,
+                    onSendImageNote = viewModel::sendImageNote,
+                    onSendFileNote = viewModel::sendFileNote,
+                    selectedPrivatePeer = selectedPeer, currentChannel = selectedChannel,
+                    nickname = nickname, showMediaButtons = true)
+            } else {
+                val chats = privateChats.map { (peer, messages) ->
+                    InboxItem(peer, peerNames[peer] ?: peer, messages, if (peer in unreadPrivate) 1 else 0, true)
+                } + groupNames.map { (id, name) -> InboxItem(id, name, channelMessages[id].orEmpty(), unreadChannels[id] ?: 0) }
+                val sorted = chats.sortedByDescending { it.messages.lastOrNull()?.timestamp?.time ?: 0 }
+                LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 88.dp)) {
+                    item("nearby") {
+                        historyError?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) }
+                        ListItem(headlineContent = { Text("People nearby") },
+                            supportingContent = { Text(if (peers.isEmpty()) "Keep Bluetooth on to discover people" else "${peers.size} people available to chat") },
+                            modifier = Modifier.clickable { showPeople = true })
+                        ListItem(headlineContent = { Text("Nearby chat") },
+                            supportingContent = { Text("Public conversation with the local mesh") },
+                            modifier = Modifier.clickable { closeChat(); publicChatOpen = true })
+                        HorizontalDivider()
+                    }
+                    if (sorted.isEmpty()) item("empty") {
+                        Text("Start a private chat or create a group. Your profile needs no phone number or email.",
+                            Modifier.padding(24.dp), style = MaterialTheme.typography.bodyLarge)
+                    }
+                    items(sorted, key = { if (it.isPrivate) "private:${it.id}" else "group:${it.id}" }) { item ->
+                        ListItem(
+                            headlineContent = { Text(item.title, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                            supportingContent = { Text(item.messages.lastOrNull()?.let(::messagePreview) ?: "No messages yet", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                            trailingContent = {
+                                Column(horizontalAlignment = Alignment.End) {
+                                    item.messages.lastOrNull()?.let { Text(DateFormat.getTimeInstance(DateFormat.SHORT).format(it.timestamp), style = MaterialTheme.typography.labelSmall) }
+                                    if (item.unread > 0) Badge { Text(item.unread.toString()) }
                                 }
-                                Spacer(modifier = Modifier.height(12.dp))
-                            }
-                        }
-
-                        FloatingActionButton(
-                                onClick = { showActionMenuSheet = true },
-                                containerColor = Color(0xFF3B82F6),
-                                contentColor = Color.White,
-                                modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
-                        ) { Text(text = "+", fontSize = 28.sp, fontWeight = FontWeight.Light) }
-                    }
-                }
-                ChatViewState.CHAT -> {
-                    MessagesList(
-                            messages = displayMessages,
-                            currentUserNickname = nickname,
-                            meshService = viewModel.meshServiceFacade,
-                            modifier = Modifier.weight(1f)
-                    )
-                    if (!isReadOnly) {
-                        ChatInputBar(
-                                messageText = messageText,
-                                onMessageTextChange = { messageText = it },
-                                onSend = {
-                                    if (messageText.text.trim().isNotEmpty()) {
-                                        if (isOfficialUpdates) return@ChatInputBar
-                                        viewModel.sendMessage(messageText.text.trim())
-                                        messageText = TextFieldValue("")
-                                    }
-                                }
-                        )
-                    }
-                }
-            }
-        }
-
-        if (showPanicWipe) {
-            PanicWipeOverlay(
-                    onWipeComplete = {
-                        showPanicWipe = false
-                        viewModel.panicClearAllData()
-                        currentView = ChatViewState.INBOX
-                        selectedConvId = null
-                    },
-                    modifier = Modifier.zIndex(10f)
-            )
-        }
-
-        ProfileSettingsSheet(
-                isPresented = showProfileSettingsSheet,
-                onDismiss = { showProfileSettingsSheet = false },
-                viewModel = viewModel
-        )
-
-        LocationChannelsSheet(
-                isPresented = showLocationChannelsSheet,
-                onDismiss = { showLocationChannelsSheet = false },
-                viewModel = viewModel
-        )
-
-        ActionMenuSheet(
-                isPresented = showActionMenuSheet,
-                onDismiss = { showActionMenuSheet = false },
-                onOpenProfile = { showProfileSettingsSheet = true },
-                onScanQR = { showScannerPanel = true },
-                onCreateBroadcast = { showBroadcastCreationDialog = true },
-                onShareApp = {
-                    coroutineScope.launch {
-                        com.bitchat.android.utils.AppShareUtils.shareApkOffline(context)
-                    }
-                }
-        )
-
-        // Broadcast channel name prompt
-        BroadcastCreationDialog(
-                isPresented = showBroadcastCreationDialog,
-                onDismiss = { showBroadcastCreationDialog = false },
-                onCreate = { name ->
-                    showBroadcastCreationDialog = false
-                    val channelId = viewModel.createBroadcastChannel(name)
-                    if (channelId != null) {
-                        newBroadcastChannelId = channelId
-                        newBroadcastChannelName = name
-                        broadcastQRBitmap = generateBroadcastQR(channelId, name)
-                        showBroadcastQRSheet = true
-                    }
-                }
-        )
-
-        // Broadcast channel QR share sheet
-        BroadcastQRSheet(
-                isPresented = showBroadcastQRSheet,
-                onDismiss = { showBroadcastQRSheet = false },
-                channelId = newBroadcastChannelId,
-                channelName = newBroadcastChannelName,
-                qrBitmap = broadcastQRBitmap
-        )
-
-        // Scanner panel (for "Scan QR" action)
-        if (showScannerPanel) {
-            Dialog(
-                    onDismissRequest = { showScannerPanel = false },
-                    properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false)
-            ) {
-                Box(
-                        modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color(0xFF111B21))
-                                .systemBarsPadding()
-                ) {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        // Top bar
-                        Row(
-                                modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 4.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            IconButton(onClick = { showScannerPanel = false }) {
-                                Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                        contentDescription = "Back",
-                                        tint = Color.White
-                                )
-                            }
-                            Text(
-                                    text = "Scan QR Code",
-                                    color = Color.White,
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Medium
-                            )
-                        }
-
-                        // Camera preview with overlay
-                        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                            ScannerPanel(
-                                    isActive = showScannerPanel,
-                                    onScanResult = { code ->
-                                        val invite = parseBroadcastInvite(code)
-                                        if (invite != null) {
-                                            val (channelId, channelName) = invite
-                                            viewModel.joinBroadcastChannel(channelId, channelName)
-                                            showScannerPanel = false
-                                            selectedConvId = channelId
-                                            selectedConvIsPrivate = false
-                                            isOfficialUpdates = false
-                                            isBroadcastConv = true
-                                            viewModel.switchToChannel(channelId)
-                                            currentView = ChatViewState.CHAT
-                                        } else {
-                                            val qr = VerificationService.verifyScannedQR(code)
-                                            if (qr != null) {
-                                                val success = viewModel.beginQRVerification(qr)
-                                                if (success) {
-                                                    viewModel.showPrivateChatSheet(qr.nickname)
-                                                    showScannerPanel = false
-                                                } else {
-                                                    Log.w(
-                                                            "ChatScreen",
-                                                            "QR verification failed for ${qr.nickname}"
-                                                    )
-                                                }
-                                            } else {
-                                                Log.w("ChatScreen", "Invalid QR code scanned")
-                                            }
-                                        }
-                                    },
-                                    onCancel = { showScannerPanel = false },
-                                    modifier = Modifier.fillMaxSize()
-                            )
-
-                            // Viewfinder overlay
-                            Canvas(
-                                    modifier = Modifier
-                                            .fillMaxSize()
-                                            .graphicsLayer(alpha = 0.99f)
-                            ) {
-                                val w = size.width
-                                val h = size.height
-                                val vfSize = minOf(w, h) * 0.65f
-                                val vfLeft = (w - vfSize) / 2f
-                                val vfTop = (h - vfSize) / 2f
-                                val radius = 24.dp.toPx()
-
-                                drawRect(Color(0x99000000))
-                                drawRoundRect(
-                                        Color.Transparent,
-                                        topLeft = Offset(vfLeft, vfTop),
-                                        size = Size(vfSize, vfSize),
-                                        cornerRadius = CornerRadius(radius),
-                                        blendMode = BlendMode.Clear
-                                )
-
-                                val cornerLen = 24.dp.toPx()
-                                val strokeW = 3.dp.toPx()
-                                val accentColor = Color.White
-                                val r = vfLeft + vfSize
-                                val b = vfTop + vfSize
-
-                                drawLine(accentColor, Offset(vfLeft, vfTop + cornerLen), Offset(vfLeft, vfTop), strokeW)
-                                drawLine(accentColor, Offset(vfLeft, vfTop), Offset(vfLeft + cornerLen, vfTop), strokeW)
-                                drawLine(accentColor, Offset(r - cornerLen, vfTop), Offset(r, vfTop), strokeW)
-                                drawLine(accentColor, Offset(r, vfTop), Offset(r, vfTop + cornerLen), strokeW)
-                                drawLine(accentColor, Offset(vfLeft, b - cornerLen), Offset(vfLeft, b), strokeW)
-                                drawLine(accentColor, Offset(vfLeft, b), Offset(vfLeft + cornerLen, b), strokeW)
-                                drawLine(accentColor, Offset(r - cornerLen, b), Offset(r, b), strokeW)
-                                drawLine(accentColor, Offset(r, b), Offset(r, b - cornerLen), strokeW)
-                            }
-                        }
-
-                        // Instruction text
-                        Text(
-                                text = stringResource(R.string.scan_qr_instruction),
-                                color = Color.White.copy(alpha = 0.7f),
-                                fontSize = 14.sp,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 32.dp, vertical = 24.dp)
-                        )
-                    }
-                }
-            }
-        }
-
-        // When a location channel is selected via the sheet, dismiss sheet + navigate to chat view
-        LaunchedEffect(selectedLocationChannel) {
-            if (selectedLocationChannel is ChannelID.Location &&
-                            selectedLocationChannel != ChannelID.Mesh
-            ) {
-                showLocationChannelsSheet = false
-                selectedConvId = "local_zone"
-                selectedConvIsPrivate = false
-                isOfficialUpdates = false
-                currentView = ChatViewState.CHAT
-            }
-        }
-    }
-}
-
-@Composable
-private fun InboxRow(item: InboxItem, onClick: () -> Unit) {
-    val bgColor = if (item.isPinned) Color(0xFF1A2330) else Color.Transparent
-    val accentColor = if (item.isPinned) Color(0xFF60A5FA) else Color(0xFF3B82F6)
-
-    Surface(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick), color = bgColor) {
-        Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                        text = item.title,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color =
-                                if (item.isPinned) Color(0xFF60A5FA)
-                                else MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                        text = item.subtitle,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                )
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                        text = item.timestamp,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = accentColor.copy(alpha = 0.7f),
-                        fontSize = 12.sp
-                )
-                if (item.unreadCount > 0) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Surface(shape = RoundedCornerShape(50), color = Color(0xFF3B82F6)) {
-                        Text(
-                                text = item.unreadCount.toString(),
-                                color = Color.White,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
-                }
-            }
-        }
-    }
-    HorizontalDivider(
-            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
-            modifier = Modifier.padding(start = 16.dp)
-    )
-}
-
-@Composable
-fun ChatInputBar(
-        messageText: TextFieldValue,
-        onMessageTextChange: (TextFieldValue) -> Unit,
-        onSend: () -> Unit,
-        modifier: Modifier = Modifier
-) {
-    val colorScheme = MaterialTheme.colorScheme
-
-    Surface(modifier = modifier.fillMaxWidth(), color = colorScheme.background) {
-        Column {
-            HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
-            Row(
-                    modifier =
-                            Modifier.fillMaxWidth()
-                                    .windowInsetsPadding(WindowInsets.navigationBars)
-                                    .windowInsetsPadding(WindowInsets.ime)
-                                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                        shape = RoundedCornerShape(24.dp),
-                        color = Color(0xFF131A22),
-                        modifier = Modifier.weight(1f)
-                ) {
-                    BasicTextField(
-                            value = messageText,
-                            onValueChange = onMessageTextChange,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                            textStyle =
-                                    MaterialTheme.typography.bodyMedium.copy(
-                                            color = Color(0xFFF3F4F6),
-                                            fontSize = 16.sp
-                                    ),
-                            cursorBrush = SolidColor(Color(0xFF3B82F6)),
-                            singleLine = false,
-                            maxLines = 4,
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                            keyboardActions = KeyboardActions(onSend = { onSend() }),
-                            decorationBox = { innerTextField ->
-                                Box {
-                                    if (messageText.text.isEmpty()) {
-                                        Text(
-                                                text = "Message",
-                                                color = Color(0xFF94A3B8),
-                                                fontSize = 16.sp
-                                        )
-                                    }
-                                    innerTextField()
+                            },
+                            modifier = Modifier.clickable {
+                                if (item.isPrivate) openPrivate(item.id) else {
+                                    viewModel.endPrivateChat(); publicChatOpen = false; viewModel.switchToChannel(item.id)
                                 }
                             }
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(6.dp))
-
-                Surface(
-                        shape = RoundedCornerShape(50),
-                        color = Color(0xFF3B82F6),
-                        modifier = Modifier.size(42.dp),
-                        onClick = onSend
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Send,
-                                contentDescription = "Send",
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp)
                         )
                     }
                 }
             }
         }
     }
-}
 
-@Composable
-fun ChatInputSection(
-        messageText: TextFieldValue,
-        onMessageTextChange: (TextFieldValue) -> Unit,
-        onSend: () -> Unit,
-        onSendVoiceNote: (String?, String?, String) -> Unit,
-        onSendImageNote: (String?, String?, String) -> Unit,
-        onSendFileNote: (String?, String?, String) -> Unit,
-        showMentionSuggestions: Boolean,
-        mentionSuggestions: List<String>,
-        onMentionSuggestionClick: (String) -> Unit,
-        selectedPrivatePeer: String?,
-        currentChannel: String?,
-        nickname: String,
-        colorScheme: ColorScheme,
-        showMediaButtons: Boolean
-) {
-    Surface(modifier = Modifier.fillMaxWidth(), color = colorScheme.background) {
-        Column {
-            HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
-            if (showMentionSuggestions && mentionSuggestions.isNotEmpty()) {
-                MentionSuggestionsBox(
-                        suggestions = mentionSuggestions,
-                        onSuggestionClick = onMentionSuggestionClick,
-                        modifier = Modifier.fillMaxWidth()
-                )
-                HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.2f))
+    ActionMenuSheet(isPresented = showActions, onDismiss = { showActions = false },
+        onOpenProfile = { showProfile = true }, onScanQR = { showScanner = true },
+        onCreateGroup = { showCreate = true }, onJoinGroup = { inviteInput = ""; showJoin = true },
+        onNewChat = { showPeople = true },
+        onShareApp = { scope.launch { com.bitchat.android.utils.AppShareUtils.shareApkOffline(context) } })
+    ProfileSettingsSheet(isPresented = showProfile, onDismiss = { showProfile = false }, viewModel = viewModel)
+
+    if (showCreate) CreateGroupDialog(onDismiss = { showCreate = false }, busy = busy, onCreate = { name ->
+        scope.launch {
+            busy = true
+            try { viewModel.createGroup(name)?.let { showCreate = false; publicChatOpen = false; shareInvite = it } }
+            finally { busy = false }
+        }
+    })
+    if (showJoin) JoinGroupDialog(initialLink = inviteInput, onDismiss = { showJoin = false }, busy = busy, onJoin = { invite ->
+        scope.launch {
+            busy = true
+            try { if (viewModel.joinGroup(invite)) { showJoin = false; publicChatOpen = false } }
+            finally { busy = false }
+        }
+    })
+    shareInvite?.let { GroupInvitationDialog(it, onDismiss = { shareInvite = null }) }
+    if (showPeople) AlertDialog(onDismissRequest = { showPeople = false }, title = { Text("People nearby") },
+        text = {
+            LazyColumn {
+                if (peers.isEmpty()) item { Text("No one nearby yet. Both devices need Outpost open with Bluetooth and nearby permissions enabled.") }
+                items(peers, key = { it }) { peer ->
+                    ListItem(headlineContent = { Text(peerNames[peer] ?: peer) },
+                        modifier = Modifier.clickable { showPeople = false; openPrivate(peer) })
+                }
             }
-            MessageInput(
-                    value = messageText,
-                    onValueChange = onMessageTextChange,
-                    onSend = onSend,
-                    onSendVoiceNote = onSendVoiceNote,
-                    onSendImageNote = onSendImageNote,
-                    onSendFileNote = onSendFileNote,
-                    selectedPrivatePeer = selectedPrivatePeer,
-                    currentChannel = currentChannel,
-                    nickname = nickname,
-                    showMediaButtons = showMediaButtons,
-                    modifier = Modifier.fillMaxWidth()
-            )
+        }, confirmButton = { TextButton(onClick = { showPeople = false }) { Text("Done") } })
+    if (showScanner) Dialog(onDismissRequest = { showScanner = false }) {
+        Surface {
+            ScannerPanel(isActive = true, modifier = Modifier.fillMaxWidth().height(480.dp),
+                onCancel = { showScanner = false }, onScanResult = { code ->
+                    val invite = GroupInvite.parse(code)
+                    if (invite != null) { showScanner = false; inviteInput = code; showJoin = true }
+                    else {
+                        val qr = VerificationService.verifyScannedQR(code)
+                        val peer = qr?.let { data -> peers.firstOrNull { id ->
+                            viewModel.getMeshPeerInfo(id)?.noisePublicKey?.hexEncodedString()?.equals(data.noiseKeyHex, true) == true
+                        } }
+                        if (qr != null && peer != null && viewModel.beginQRVerification(qr)) {
+                            showScanner = false; openPrivate(peer)
+                        } else scope.launch { snackbar.showSnackbar("Use a group invitation or the profile QR of someone nearby.") }
+                    }
+                })
         }
     }
+    if (confirmClear || confirmLeave) {
+        val leaving = confirmLeave
+        // Capture the conversation being confirmed; navigation cannot retarget this action.
+        val peer = remember { selectedPeer }
+        val channel = remember { selectedChannel }
+        AlertDialog(onDismissRequest = { confirmClear = false; confirmLeave = false },
+            title = { Text(if (leaving) "Leave group?" else "Clear this chat?") },
+            text = { Text("Messages and attachments in this chat will be removed from this device. Other people keep their copies." +
+                if (leaving) " You will need an invitation to rejoin." else " New messages can still arrive.") },
+            confirmButton = { TextButton(onClick = {
+                viewModel.clearConversation(peer, channel, leaving)
+                confirmClear = false; confirmLeave = false
+                if (leaving) closeChat()
+            }) { Text(if (leaving) "Leave and clear" else "Clear chat") } },
+            dismissButton = { TextButton(onClick = { confirmClear = false; confirmLeave = false }) { Text("Cancel") } })
+    }
+    if (confirmWipe) AlertDialog(onDismissRequest = { confirmWipe = false },
+        title = { Text("Erase account and all app data?") },
+        text = { Text("This removes your profile, keys, groups, chats, and app attachments from this device and closes Outpost. You will create a new profile next time. Copies on other devices and files you exported are unaffected.") },
+        confirmButton = { TextButton(onClick = { confirmWipe = false; viewModel.panicClearAllData() }) { Text("Erase everything") } },
+        dismissButton = { TextButton(onClick = { confirmWipe = false }) { Text("Cancel") } })
+}
+
+private fun messagePreview(message: BitchatMessage): String = when (message.type) {
+    BitchatMessageType.Message -> message.content
+    BitchatMessageType.Audio -> "Voice message"
+    BitchatMessageType.Image -> "Photo"
+    BitchatMessageType.File -> "File"
 }

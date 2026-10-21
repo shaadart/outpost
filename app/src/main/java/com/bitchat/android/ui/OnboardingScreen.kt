@@ -1,6 +1,8 @@
 package com.bitchat.android.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -19,9 +21,9 @@ fun OnboardingScreen(onComplete: (String) -> Unit) {
     var name by remember { mutableStateOf("") }
     var isError by remember { mutableStateOf(false) }
 
-    Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF0B0F14)) {
+    Surface(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding(), color = Color(0xFF0B0F14)) {
         Column(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp),
+                modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 32.dp, vertical = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
         ) {
@@ -35,7 +37,7 @@ fun OnboardingScreen(onComplete: (String) -> Unit) {
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                    text = "Decentralized Off-Grid Messaging",
+                    text = "Private messaging over the nearby mesh",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color(0xFF94A3B8)
             )
@@ -54,7 +56,7 @@ fun OnboardingScreen(onComplete: (String) -> Unit) {
             OutlinedTextField(
                     value = name,
                     onValueChange = {
-                        name = it
+                        name = it.filterNot { c -> c.isISOControl() }.take(32)
                         isError = false
                     },
                     placeholder = { Text("Your display name", color = Color(0xFF94A3B8)) },
@@ -86,7 +88,10 @@ fun OnboardingScreen(onComplete: (String) -> Unit) {
                     modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+            Text("No phone number or email. Your identity is created on this device. Nearby connections are required to exchange messages.",
+                color = Color(0xFF94A3B8), style = MaterialTheme.typography.bodySmall)
+            Spacer(modifier = Modifier.height(16.dp))
 
             Button(
                     onClick = {
@@ -102,7 +107,7 @@ fun OnboardingScreen(onComplete: (String) -> Unit) {
                             ),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth().height(52.dp)
-            ) { Text(text = "Continue", fontWeight = FontWeight.SemiBold, fontSize = 16.sp) }
+            ) { Text(text = "Create profile", fontWeight = FontWeight.SemiBold, fontSize = 16.sp) }
         }
     }
 }

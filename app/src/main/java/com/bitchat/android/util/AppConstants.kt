@@ -129,7 +129,8 @@ object AppConstants {
     }
 
     object Media {
-        const val MAX_FILE_SIZE_BYTES: Long = 50L * 1024 * 1024
+        // Keep a complete encrypted file within the mesh's 256-fragment receive budget.
+        const val MAX_FILE_SIZE_BYTES: Long = 96L * 1024
     }
 
     object Services {

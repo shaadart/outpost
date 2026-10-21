@@ -96,4 +96,51 @@ class AppStateStoreTest {
 
         assertEquals(setOf("wifi-3"), AppStateStore.getDirectPeers())
     }
+
+    @Test
+    fun `clearing private chat removes background snapshot and rejects replay without touching other chats`() {
+        val old = BitchatMessage(id = "old", sender = "Alice", content = "secret", isPrivate = true,
+            senderPeerID = "alice", timestamp = Date(100))
+        val other = old.copy(id = "other", senderPeerID = "bob")
+        AppStateStore.addPrivateMessage("alice", old)
+        AppStateStore.addPrivateMessage("bob", other)
+        assertEquals(listOf(old), AppStateStore.clearConversation(peer = "alice"))
+        AppStateStore.addPrivateMessage("alice", old.copy(id = "replayed"))
+        assertEquals(null, AppStateStore.privateMessages.value["alice"])
+        assertEquals(listOf(other), AppStateStore.privateMessages.value["bob"])
+        val fresh = old.copy(id = "new", timestamp = Date(System.currentTimeMillis() + 1000))
+        AppStateStore.addPrivateMessage("alice", fresh)
+        assertEquals(listOf(fresh), AppStateStore.privateMessages.value["alice"])
+    }
+
+    @Test
+    fun `clearing a group prevents sync restoring old messages and keeps unrelated groups`() {
+        val old = BitchatMessage(id = "old", sender = "Alice", content = "secret", timestamp = Date(100), channel = "#group")
+        AppStateStore.addChannelMessage("#group", old)
+        AppStateStore.addChannelMessage("#other", old.copy(id = "other", channel = "#other"))
+        AppStateStore.clearConversation(channel = "#group")
+        AppStateStore.addChannelMessage("#group", old.copy(id = "replay"))
+        assertEquals(null, AppStateStore.channelMessages.value["#group"])
+        assertEquals(1, AppStateStore.channelMessages.value["#other"]?.size)
+    }
+
+    @Test
+    fun `clearing public timeline does not clear private chats`() {
+        val old = BitchatMessage(id = "old", sender = "Alice", content = "secret", timestamp = Date(100))
+        AppStateStore.addPublicMessage(old)
+        AppStateStore.addPrivateMessage("alice", old.copy(id = "private", isPrivate = true))
+        AppStateStore.clearConversation()
+        AppStateStore.addPublicMessage(old.copy(id = "replay"))
+        assertEquals(emptyList<BitchatMessage>(), AppStateStore.publicMessages.value)
+        assertEquals(1, AppStateStore.privateMessages.value["alice"]?.size)
+    }
+
+    @Test
+    fun `chat history has a bounded memory footprint`() {
+        repeat(510) { index -> AppStateStore.addPrivateMessage("alice", BitchatMessage(
+            id = "id-$index", sender = "Alice", content = "message $index", timestamp = Date(index.toLong())
+        )) }
+        assertEquals(500, AppStateStore.privateMessages.value["alice"]?.size)
+        assertEquals("id-10", AppStateStore.privateMessages.value["alice"]?.first()?.id)
+    }
 }

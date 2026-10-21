@@ -31,3 +31,10 @@
 -keepclassmembers class * implements android.location.LocationListener {
     public <methods>;
 }
+
+# Private messages and peer diagnostics must not appear in production debug logs.
+-assumenosideeffects class android.util.Log {
+    public static int v(...);
+    public static int d(...);
+    public static int i(...);
+}

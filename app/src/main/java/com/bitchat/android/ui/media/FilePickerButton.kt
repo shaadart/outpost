@@ -9,6 +9,10 @@ import androidx.compose.material.icons.filled.Attachment
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
@@ -24,16 +28,18 @@ fun FilePickerButton(
     onFileReady: (String) -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     // Use SAF - supports all file types
     val filePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         if (uri != null) {
-            // Persist temporary read permission so we can copy
-            try { context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: Exception) {}
-            val path = FileUtils.copyFileForSending(context, uri)
-            if (!path.isNullOrBlank()) onFileReady(path)
+            scope.launch {
+                val path = withContext(Dispatchers.IO) { FileUtils.copyFileForSending(context, uri) }
+                if (!path.isNullOrBlank()) onFileReady(path)
+                else android.widget.Toast.makeText(context, "Could not attach file. Maximum size is 96 KB.", android.widget.Toast.LENGTH_LONG).show()
+            }
         }
     }
 

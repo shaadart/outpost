@@ -13,6 +13,7 @@ class OutpostApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        com.bitchat.android.services.AppStateStore.initialize(this)
 
         // Initialize Tor first so any early network goes over Tor
         try {
@@ -57,9 +58,6 @@ class OutpostApplication : Application() {
         // Initialize mesh service preferences
         try { com.bitchat.android.service.MeshServicePreferences.init(this) } catch (_: Exception) { }
 
-        // Proactively start the foreground service to keep mesh alive
-        try { com.bitchat.android.service.MeshForegroundService.start(this) } catch (_: Exception) { }
-
-        // TorManager already initialized above
+        // MainActivity starts connectivity only after profile creation and required permissions.
     }
 }

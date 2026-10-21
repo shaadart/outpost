@@ -43,6 +43,7 @@ class MessageHandlerTest {
     @Before
     fun setup() {
         MeshGraphService.resetForTesting()
+        com.bitchat.android.services.AppStateStore.clear()
         handler = MessageHandler(myPeerID, RuntimeEnvironment.getApplication())
         delegate = mock()
         handler.delegate = delegate
@@ -88,6 +89,72 @@ class MessageHandlerTest {
         assertFalse("Announce older than clock skew tolerance should not store peer identity", result)
         verify(delegate, never()).updatePeerInfo(any(), any(), any(), any(), any())
         verify(delegate, never()).updatePeerIDBinding(any(), any(), any(), any())
+    }
+
+
+    @Test
+    fun `encrypted group text is routed only to its group`() = runBlocking {
+        val invite = com.bitchat.android.groups.GroupInvite.create("Friends")
+        handler = MessageHandler(myPeerID, RuntimeEnvironment.getApplication()) { invite.takeIf { group -> group.id == it } }
+        handler.delegate = delegate
+        whenever(delegate.getPeerInfo(peerID)).thenReturn(PeerInfo(peerID, nickname, true, true,
+            noiseKey, signingKey, true, System.currentTimeMillis()))
+        whenever(delegate.getBroadcastRecipient()).thenReturn(SpecialRecipients.BROADCAST)
+        whenever(delegate.getPeerNickname(peerID)).thenReturn(nickname)
+        val payload = com.bitchat.android.groups.GroupMessageCodec.encrypt(invite.id, invite.keyBytes(), "group secret".toByteArray())
+        val packet = BitchatPacket(version = 2u, type = MessageType.MESSAGE.value,
+            senderID = peerID.hexToBytes(), recipientID = SpecialRecipients.BROADCAST,
+            timestamp = System.currentTimeMillis().toULong(), payload = payload, signature = signature, ttl = AppConstants.MESSAGE_TTL_HOPS)
+        handler.handleMessage(RoutedPacket(packet, peerID, "direct-link"))
+        val captured = org.mockito.kotlin.argumentCaptor<com.bitchat.android.model.BitchatMessage>()
+        verify(delegate).onMessageReceived(captured.capture())
+        org.junit.Assert.assertEquals(invite.id, captured.firstValue.channel)
+        org.junit.Assert.assertEquals("group secret", captured.firstValue.content)
+        assertTrue(captured.firstValue.isEncrypted)
+    }
+
+    @Test
+    fun `unknown encrypted group never falls back to public text`() = runBlocking {
+        val invite = com.bitchat.android.groups.GroupInvite.create("Unknown")
+        handler = MessageHandler(myPeerID, RuntimeEnvironment.getApplication()) { null }
+        handler.delegate = delegate
+        whenever(delegate.getPeerInfo(peerID)).thenReturn(PeerInfo(peerID, nickname, true, true,
+            noiseKey, signingKey, true, System.currentTimeMillis()))
+        whenever(delegate.getBroadcastRecipient()).thenReturn(SpecialRecipients.BROADCAST)
+        val payload = com.bitchat.android.groups.GroupMessageCodec.encrypt(invite.id, invite.keyBytes(), "secret".toByteArray())
+        val packet = BitchatPacket(version = 2u, type = MessageType.MESSAGE.value,
+            senderID = peerID.hexToBytes(), recipientID = SpecialRecipients.BROADCAST,
+            timestamp = System.currentTimeMillis().toULong(), payload = payload, signature = signature, ttl = AppConstants.MESSAGE_TTL_HOPS)
+        handler.handleMessage(RoutedPacket(packet, peerID, "direct-link"))
+        verify(delegate, never()).onMessageReceived(any())
+    }
+
+
+    @Test
+    fun `repeated encrypted group attachment does not leave duplicate media`() = runBlocking {
+        val context = RuntimeEnvironment.getApplication()
+        val invite = com.bitchat.android.groups.GroupInvite.create("Files")
+        handler = MessageHandler(myPeerID, context) { invite.takeIf { group -> group.id == it } }
+        handler.delegate = delegate
+        whenever(delegate.getPeerInfo(peerID)).thenReturn(PeerInfo(peerID, nickname, true, true,
+            noiseKey, signingKey, true, System.currentTimeMillis()))
+        whenever(delegate.getBroadcastRecipient()).thenReturn(SpecialRecipients.BROADCAST)
+        org.mockito.kotlin.doAnswer { call ->
+            val msg = call.getArgument<com.bitchat.android.model.BitchatMessage>(0)
+            com.bitchat.android.services.AppStateStore.addChannelMessage(invite.id, msg)
+            null
+        }.whenever(delegate).onMessageReceived(any())
+        val file = com.bitchat.android.model.BitchatFilePacket("a.txt", 6, "text/plain", "secret".toByteArray())
+        val payload = com.bitchat.android.groups.GroupMessageCodec.encrypt(invite.id, invite.keyBytes(), file.encode()!!, true)
+        val packet = BitchatPacket(version = 2u, type = MessageType.FILE_TRANSFER.value,
+            senderID = peerID.hexToBytes(), recipientID = SpecialRecipients.BROADCAST,
+            timestamp = System.currentTimeMillis().toULong(), payload = payload, signature = signature, ttl = AppConstants.MESSAGE_TTL_HOPS)
+        val dir = java.io.File(context.filesDir, "files/incoming")
+        val before = dir.listFiles()?.size ?: 0
+        repeat(2) { handler.handleMessage(RoutedPacket(packet, peerID, "direct-link")) }
+        verify(delegate, org.mockito.kotlin.times(1)).onMessageReceived(any())
+        org.junit.Assert.assertEquals(before + 1, dir.listFiles()?.size)
+        org.junit.Assert.assertEquals(1, com.bitchat.android.services.AppStateStore.channelMessages.value[invite.id]?.size)
     }
 
     private fun announcePacket(

@@ -291,7 +291,10 @@ class PrivateChatManager(
         handleIncomingPrivateMessage(message, suppressUnread = false)
     }
 
+    fun clearConversationReceipts(peerID: String) { unreadReceivedMessages.remove(peerID) }
+
     fun handleIncomingPrivateMessage(message: BitchatMessage, suppressUnread: Boolean) {
+        if (!com.bitchat.android.services.AppStateStore.accepts(message)) return
         val senderPeerID = message.senderPeerID
         if (senderPeerID != null) {
             // Mesh-origin private message: AppStateStore updates the list; avoid double-add here.
@@ -447,11 +450,8 @@ class PrivateChatManager(
             }
         } catch (_: Exception) { }
 
-        // Also merge any directly-addressed temp key used by incoming messages (without mapping yet)
-        // Search existing chats for keys that begin with "nostr_" and have messages from the same nickname
-        state.getPrivateChatsValue().keys.filter { it.startsWith("nostr_") }.forEach { tempKey ->
-            if (!tryMergeKeys.contains(tempKey)) tryMergeKeys.add(tempKey)
-        }
+        // Merge only the alias whose public key was resolved above. Unrelated Nostr chats
+        // must never be attached to this person's conversation.
 
         if (tryMergeKeys.isEmpty()) return
 

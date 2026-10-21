@@ -1,30 +1,44 @@
 package com.bitchat.android.crypto
 
 import android.content.Context
-import androidx.test.core.app.ApplicationProvider
+import androidx.test.platform.app.InstrumentationRegistry
 import com.bitchat.android.noise.NoiseEncryptionService
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import java.util.Arrays
 
-@RunWith(RobolectricTestRunner::class)
+@RunWith(AndroidJUnit4::class)
 class EncryptionServiceTest {
 
     private lateinit var context: Context
     private lateinit var encryptionService: EncryptionService
 
+    @org.junit.After
+    fun cleanupQaPreferences() {
+        val target = InstrumentationRegistry.getInstrumentation().targetContext
+        for (name in listOf("bitchat_crypto_secure", "bitchat_crypto", "bitchat_identity")) {
+            target.deleteSharedPreferences("outpost_identity_qa_" + name)
+        }
+    }
+
     @Before
     fun setup() {
-        context = ApplicationProvider.getApplicationContext()
+        val target = InstrumentationRegistry.getInstrumentation().targetContext
+        // Each tested component uses only namespaced QA preferences, never the user's identity.
+        context = object : android.content.ContextWrapper(target) {
+            override fun getApplicationContext(): Context = this
+            override fun getSharedPreferences(name: String, mode: Int): android.content.SharedPreferences =
+                target.getSharedPreferences("outpost_identity_qa_" + name, mode)
+        }
         encryptionService = EncryptionService(context)
     }
 
     @Test
-    fun `test clearPersistentIdentity changes keys`() {
+    fun clearPersistentIdentityChangesOnlyQaKeys() {
         // 1. Get initial keys
         val initialStaticKey = encryptionService.getStaticPublicKey()
         val initialSigningKey = encryptionService.getSigningPublicKey()

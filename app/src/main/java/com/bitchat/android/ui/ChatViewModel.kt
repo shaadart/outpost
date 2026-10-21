@@ -22,6 +22,8 @@ import com.bitchat.android.protocol.BitchatPacket
 
 
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.bitchat.android.util.NotificationIntervalManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -59,17 +61,42 @@ class ChatViewModel(
         private const val TAG = "ChatViewModel"
     }
 
-    fun sendVoiceNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
-        mediaSendingManager.sendVoiceNote(toPeerIDOrNull, channelOrNull, filePath)
+    private val mediaJobs = mutableMapOf<String, MutableSet<kotlinx.coroutines.Job>>()
+
+    private fun mediaConversationKey(peer: String?, channel: String?) =
+        if (peer != null) "peer:$peer" else "channel:${channel.orEmpty()}"
+
+    private fun sendMedia(peer: String?, channel: String?, send: () -> Unit) {
+        val key = mediaConversationKey(peer, channel)
+        val job = viewModelScope.launch {
+            try {
+                if (peer != null && !mesh.hasEstablishedSession(peer)) {
+                    mesh.initiateNoiseHandshake(peer)
+                    val ready = kotlinx.coroutines.withTimeoutOrNull(15_000) {
+                        while (!mesh.hasEstablishedSession(peer)) delay(100)
+                        true
+                    } ?: false
+                    if (!ready) {
+                        _operationError.value = "Connect to this person over the nearby mesh before sending attachments."
+                        return@launch
+                    }
+                }
+                withContext(Dispatchers.IO) { send() }
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (e: Exception) { _operationError.value = "Could not send attachment. Please try again." }
+        }
+        mediaJobs.getOrPut(key) { mutableSetOf() }.add(job)
+        job.invokeOnCompletion { viewModelScope.launch { mediaJobs[key]?.remove(job) } }
     }
 
-    fun sendFileNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
-        mediaSendingManager.sendFileNote(toPeerIDOrNull, channelOrNull, filePath)
-    }
+    fun sendVoiceNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) =
+        sendMedia(toPeerIDOrNull, channelOrNull) { mediaSendingManager.sendVoiceNote(toPeerIDOrNull, channelOrNull, filePath) }
 
-    fun sendImageNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
-        mediaSendingManager.sendImageNote(toPeerIDOrNull, channelOrNull, filePath)
-    }
+    fun sendFileNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) =
+        sendMedia(toPeerIDOrNull, channelOrNull) { mediaSendingManager.sendFileNote(toPeerIDOrNull, channelOrNull, filePath) }
+
+    fun sendImageNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) =
+        sendMedia(toPeerIDOrNull, channelOrNull) { mediaSendingManager.sendImageNote(toPeerIDOrNull, channelOrNull, filePath) }
 
     fun getCurrentNpub(): String? {
         return try {
@@ -127,6 +154,7 @@ class ChatViewModel(
     val verifiedFingerprints = verificationHandler.verifiedFingerprints
 
     fun completeOnboarding(displayName: String) {
+        require(displayName.isNotBlank() && displayName.length <= 32 && displayName.none { it.isISOControl() })
         dataManager.saveNickname(displayName)
         dataManager.setOnboardingComplete()
         state.setNickname(displayName)
@@ -135,7 +163,8 @@ class ChatViewModel(
     }
 
     // Media file sending manager
-    private val mediaSendingManager = MediaSendingManager(state, messageManager, channelManager) { mesh }
+    private val mediaSendingManager = MediaSendingManager(state, messageManager, channelManager,
+        onError = { _operationError.value = it }) { mesh }
     
     // Delegate handler for mesh callbacks
     private val meshDelegateHandler = MeshDelegateHandler(
@@ -224,6 +253,13 @@ class ChatViewModel(
         mesh.initiateNoiseHandshake(peerID)
     }
 
+    private val _groupNames = MutableStateFlow<Map<String, String>>(emptyMap())
+    val groupNames: StateFlow<Map<String, String>> = _groupNames.asStateFlow()
+    private val _operationError = MutableStateFlow<String?>(null)
+    val operationError: StateFlow<String?> = _operationError.asStateFlow()
+    fun clearOperationError() { _operationError.value = null }
+
+
     init {
         // Note: Mesh service delegate is now set by MainActivity
         if (dataManager.isOnboardingComplete()) {
@@ -298,16 +334,16 @@ class ChatViewModel(
             }
         }
         
-        // Ensure official_updates channel is always present
-        if ("official_updates" !in joinedChannels) {
-            channelManager.joinChannel("official_updates", null, mesh.myPeerID)
-            val updatedChannels = state.getJoinedChannelsValue() + "official_updates"
-            state.setJoinedChannels(updatedChannels)
-            if (!state.getChannelMessagesValue().containsKey("official_updates")) {
-                val updated = state.getChannelMessagesValue().toMutableMap()
-                updated["official_updates"] = emptyList()
-                state.setChannelMessages(updated)
-            }
+        // Remove the retired template feed, including the duplicate tag created by old onboarding.
+        listOf("official_updates", "#official_updates").forEach { channelManager.leaveChannel(it) }
+        viewModelScope.launch {
+            try {
+                val groups = withContext(Dispatchers.IO) {
+                    com.bitchat.android.groups.GroupRepository.getInstance(getApplication()).all()
+                }
+                _groupNames.value = groups.associate { it.id to it.name }
+                channelManager.restoreGroups(groups.map { it.id }.toSet())
+            } catch (e: Exception) { _operationError.value = "Could not load groups. Please restart Outpost." }
         }
 
         // Load other data
@@ -368,8 +404,10 @@ class ChatViewModel(
     // MARK: - Nickname Management
     
     fun setNickname(newNickname: String) {
-        state.setNickname(newNickname)
-        dataManager.saveNickname(newNickname)
+        val name = newNickname.trim()
+        if (name.isBlank() || name.length > 32 || name.any { it.isISOControl() }) return
+        state.setNickname(name)
+        dataManager.saveNickname(name)
         mesh.sendBroadcastAnnounce()
     }
     
@@ -420,6 +458,10 @@ class ChatViewModel(
     }
     
     fun switchToChannel(channel: String?) {
+        // The simplified wrapper's nearby and group conversations always use the mesh.
+        if (state.selectedLocationChannel.value != com.bitchat.android.geohash.ChannelID.Mesh) {
+            geohashViewModel.selectLocationChannel(com.bitchat.android.geohash.ChannelID.Mesh)
+        }
         channelManager.switchToChannel(channel)
     }
     
@@ -428,41 +470,78 @@ class ChatViewModel(
         mesh.sendMessage("left $channel", emptyList(), null)
     }
 
-    fun createBroadcastChannel(name: String): String? {
-        val channelId = "broadcast_${Random.nextInt(100000, 999999)}_${name.filter { it.isLetterOrDigit() }.take(12)}"
-        val channelTag = if (channelId.startsWith("#")) channelId else "#$channelId"
-        val joined = channelManager.joinChannel(channelTag, null, mesh.myPeerID)
-        if (joined) {
-            dataManager.addBroadcastChannel(channelTag)
-            dataManager.addChannelCreator(channelTag, mesh.myPeerID)
-            dataManager.saveChannelData(state.getJoinedChannelsValue(), state.getPasswordProtectedChannelsValue())
-            Log.d(TAG, "Created broadcast channel: $channelTag with name: $name")
-            return channelTag
-        }
-        return null
-    }
-
-    fun joinBroadcastChannel(channelId: String, channelName: String) {
-        val channelTag = if (channelId.startsWith("#")) channelId else "#$channelId"
-        val joined = channelManager.joinChannel(channelTag, null, mesh.myPeerID)
-        if (joined && dataManager.isBroadcastChannel(channelTag)) {
-            dataManager.saveChannelData(state.getJoinedChannelsValue(), state.getPasswordProtectedChannelsValue())
-            Log.d(TAG, "Joined broadcast channel: $channelTag")
-        } else if (joined) {
-            dataManager.addBroadcastChannel(channelTag)
-            dataManager.saveChannelData(state.getJoinedChannelsValue(), state.getPasswordProtectedChannelsValue())
-            Log.d(TAG, "Joined and marked broadcast channel: $channelTag")
+    suspend fun createGroup(name: String): com.bitchat.android.groups.GroupInvite? {
+        return try {
+            val invite = com.bitchat.android.groups.GroupInvite.create(name.trim())
+            if (joinGroup(invite)) invite else null
+        } catch (e: Exception) {
+            _operationError.value = "Could not create group. Try again."
+            null
         }
     }
 
-    fun isChannelCreator(channel: String): Boolean {
-        val channelTag = if (channel.startsWith("#")) channel else "#$channel"
-        return dataManager.isChannelCreator(channelTag, mesh.myPeerID)
+    suspend fun joinGroup(invite: com.bitchat.android.groups.GroupInvite): Boolean {
+        return try {
+            val saved = withContext(Dispatchers.IO) {
+                com.bitchat.android.groups.GroupRepository.getInstance(getApplication()).join(invite)
+            }
+            if (!saved) {
+                _operationError.value = "This invitation conflicts with an existing group or could not be saved."
+                false
+            } else {
+                _groupNames.value = _groupNames.value + (invite.id to invite.name)
+                switchToChannel(null)
+                channelManager.joinChannel(invite.id, null, mesh.myPeerID)
+            }
+        } catch (e: Exception) {
+            _operationError.value = "Could not join group. Try again."
+            false
+        }
     }
 
-    fun isBroadcastChannel(channel: String): Boolean {
-        val channelTag = if (channel.startsWith("#")) channel else "#$channel"
-        return dataManager.isBroadcastChannel(channelTag)
+    suspend fun groupInvitation(id: String): com.bitchat.android.groups.GroupInvite? = withContext(Dispatchers.IO) {
+        com.bitchat.android.groups.GroupRepository.getInstance(getApplication()).get(id)
+    }
+
+    fun clearConversation(peer: String? = null, channel: String? = null, leaveGroup: Boolean = false) {
+        viewModelScope.launch {
+            val preparations = mediaJobs.remove(mediaConversationKey(peer, channel)).orEmpty().toList()
+            preparations.forEach { it.cancel() }
+            // Blocking media preparation may finish after cancellation. Drain it before taking
+            // the deletion snapshot so it cannot publish another attachment after Clear returns.
+            preparations.forEach { it.join() }
+            try {
+                withContext(Dispatchers.IO) {
+                    val messages = com.bitchat.android.services.AppStateStore.clearConversation(peer, channel)
+                    com.bitchat.android.service.MeshServiceHolder.sharedGossipSyncManager?.clearMessageCache()
+                    messages.forEach { mediaSendingManager.cancelMediaSend(it.id) }
+                    if (peer != null) com.bitchat.android.services.MessageRouter.tryGetInstance()?.clearOutbox(peer)
+                    if (leaveGroup && channel != null) {
+                        check(com.bitchat.android.groups.GroupRepository.getInstance(getApplication()).leave(channel))
+                    }
+                    val retained = com.bitchat.android.services.AppStateStore.let { store ->
+                        store.publicMessages.value + store.privateMessages.value.values.flatten() +
+                            store.channelMessages.value.values.flatten()
+                    }.map { it.content }.toSet()
+                    com.bitchat.android.features.file.FileUtils.deleteMessageFiles(getApplication(), messages, retained)
+                    File(getApplication<android.app.Application>().cacheDir, "files/viewer").deleteRecursively()
+                    messages
+                }
+                if (peer != null) {
+                    privateChatManager.clearConversationReceipts(peer)
+                    messageManager.clearPrivateMessages(peer)
+                    messageManager.clearPrivateUnreadMessages(peer)
+                    clearNotificationsForSender(peer)
+                } else if (channel != null) {
+                    messageManager.clearChannelUnreadCount(channel)
+                    if (leaveGroup) {
+                        channelManager.leaveChannel(channel)
+                        _groupNames.value = _groupNames.value - channel
+                    }
+                }
+                clearMeshMentionNotifications()
+            } catch (e: Exception) { _operationError.value = "Could not finish clearing chat. Please try again." }
+        }
     }
 
     // MARK: - Private Chat Management (delegated)
@@ -560,8 +639,13 @@ class ChatViewModel(
     
     // MARK: - Message Sending
     
-    fun sendMessage(content: String) {
-        if (content.isEmpty()) return
+    fun sendMessage(content: String): Boolean {
+        if (content.isBlank()) return false
+        val limitError = com.bitchat.android.model.MessageLimits.validationError(content, state.getSelectedPrivateChatPeerValue() != null)
+        if (limitError != null) {
+            _operationError.value = limitError
+            return false
+        }
         
 
         
@@ -571,12 +655,6 @@ class ChatViewModel(
         
         var selectedPeer = state.getSelectedPrivateChatPeerValue()
         val currentChannelValue = state.getCurrentChannelValue()
-        
-        // Block sending to read-only official broadcast channel
-        if (selectedPeer == null && currentChannelValue == "official_updates") {
-            // Silently drop the attempt, or you can log it
-            return
-        }
         
         if (selectedPeer != null) {
             // If the selected peer is a temporary Nostr alias or a noise-hex identity, resolve to a canonical target
@@ -598,7 +676,7 @@ class ChatViewModel(
             }
             // Send private message
             val recipientNickname = nicknameForPeer(selectedPeer)
-            privateChatManager.sendPrivateMessage(
+            return privateChatManager.sendPrivateMessage(
                 content, 
                 selectedPeer, 
                 recipientNickname,
@@ -612,7 +690,7 @@ class ChatViewModel(
         } else {
             // Check if we're in a location channel
             val selectedLocationChannel = state.selectedLocationChannel.value
-            if (selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location) {
+            if (currentChannelValue == null && selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location) {
                 // Send to geohash channel via Nostr ephemeral event
                 geohashViewModel.sendGeohashMessage(content, selectedLocationChannel.channel, mesh.myPeerID, state.getNicknameValue())
             } else {
@@ -630,30 +708,14 @@ class ChatViewModel(
                 if (currentChannelValue != null) {
                     channelManager.addChannelMessage(currentChannelValue, message, mesh.myPeerID)
 
-                    // Check if encrypted channel
-                    if (channelManager.hasChannelKey(currentChannelValue)) {
-                        channelManager.sendEncryptedChannelMessage(
-                            content,
-                            mentions,
-                            currentChannelValue,
-                            state.getNicknameValue(),
-                            mesh.myPeerID,
-                            onEncryptedPayload = { encryptedData ->
-                                mesh.sendMessage(content, mentions, currentChannelValue)
-                            },
-                            onFallback = {
-                                mesh.sendMessage(content, mentions, currentChannelValue)
-                            }
-                        )
-                    } else {
-                        mesh.sendMessage(content, mentions, currentChannelValue)
-                    }
+                    mesh.sendMessage(content, mentions, currentChannelValue)
                 } else {
                     messageManager.addMessage(message)
                     mesh.sendMessage(content, mentions, null)
                 }
             }
         }
+        return true
     }
 
     // MARK: - Utility Functions
@@ -1039,179 +1101,19 @@ class ChatViewModel(
     // MARK: - Emergency Clear
     
     fun panicClearAllData() {
-        Log.w(TAG, "🚨 PANIC MODE ACTIVATED - Clearing all sensitive data")
-        
-        // Clear all UI managers
-        messageManager.clearAllMessages()
-        channelManager.clearAllChannels()
-        privateChatManager.clearAllPrivateChats()
-        dataManager.clearAllData()
-        
-        // Clear seen message store
-        try {
-            com.bitchat.android.services.SeenMessageStore.getInstance(getApplication()).clear()
-        } catch (_: Exception) { }
-        
-        // Clear all mesh service data
-        clearAllMeshServiceData()
-        
-        // Clear all cryptographic data
-        clearAllCryptographicData()
-        
-        // Clear all notifications
-        notificationManager.clearAllNotifications()
-
-        // Clear all media files
-        com.bitchat.android.features.file.FileUtils.clearAllMedia(getApplication())
-        
-        // Clear Nostr/geohash state, keys, connections, bookmarks, and reinitialize from scratch
-        try {
-            // Clear geohash bookmarks too (panic should remove everything)
+        viewModelScope.launch {
             try {
-                val store = com.bitchat.android.geohash.GeohashBookmarksStore.getInstance(getApplication())
-                store.clearAll()
-            } catch (_: Exception) { }
-
-            try {
-                val locationManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(getApplication())
-                locationManager.clearPersistedChannel()
-            } catch (_: Exception) { }
-
-            geohashViewModel.panicReset()
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to reset Nostr/geohash: ${e.message}")
-        }
-
-        // Physically destroy encrypted storage files and Android Keystore keys
-        destroySecureStoragePhysical()
-
-        // Reset nickname
-        val newNickname = com.bitchat.android.identity.IdentityGenerator.generatePhoneticIdentifier()
-        state.setNickname(newNickname)
-        dataManager.saveNickname(newNickname)
-        
-        // Recreate mesh service with fresh identity
-        recreateMeshServiceAfterPanic()
-
-        Log.w(TAG, "🚨 PANIC MODE COMPLETED - New identity: ${mesh.myPeerID}")
-    }
-
-    /**
-     * Physically destroy encrypted SharedPreferences files and Android Keystore MasterKey.
-     * After this, forensic recovery of encrypted blobs is impossible because:
-     * 1. The encrypted XML files are deleted from disk
-     * 2. The Keystore MasterKey used to encrypt them is deleted
-     * 3. New keys/files will be created fresh on next access
-     */
-    private fun destroySecureStoragePhysical() {
-        try {
-            val ctx = getApplication<android.app.Application>()
-            // Delete all bitchat SharedPreferences files from disk
-            val prefsDir = File(ctx.filesDir.parentFile, "shared_prefs")
-            if (prefsDir.exists() && prefsDir.isDirectory) {
-                prefsDir.listFiles()?.forEach { file ->
-                    if (file.name.startsWith("bitchat_")) {
-                        file.delete()
-                    }
+                withContext(Dispatchers.IO) {
+                    // Android stops the process and clears app data, permissions, grants, and notifications.
+                    // Do not create a new identity or restart networking while deletion is in progress.
+                    runCatching { mesh.stopServices() }
+                    val manager = getApplication<android.app.Application>()
+                        .getSystemService(android.content.Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+                    check(manager.clearApplicationUserData()) { "Android refused the data reset" }
                 }
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to delete preference files: ${e.message}")
-        }
-
-        // Delete the Android Keystore MasterKey so encrypted prefs are permanently unrecoverable
-        try {
-            val keyStore = KeyStore.getInstance("AndroidKeyStore")
-            keyStore.load(null)
-            val masterKeyAlias = "_androidx_security_crypto_master_key_"
-            if (keyStore.containsAlias(masterKeyAlias)) {
-                keyStore.deleteEntry(masterKeyAlias)
-            }
-            // Also delete any legacy key aliases that may exist
-            val legacyAliases = listOf("bitchat_master_key")
-            legacyAliases.forEach { alias ->
-                if (keyStore.containsAlias(alias)) {
-                    keyStore.deleteEntry(alias)
-                }
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to delete Keystore MasterKey: ${e.message}")
-        }
-    }
-
-    /**
-     * Recreate the mesh service with a fresh identity after panic clear.
-     * This ensures the new cryptographic keys are used for a new peer ID.
-     */
-    private fun recreateMeshServiceAfterPanic() {
-        val oldPeerID = mesh.myPeerID
-
-        // Clear the holder so getOrCreate() returns a fresh instance
-        MeshServiceHolder.clear()
-
-        // Create fresh mesh service with new identity (keys were regenerated in clearAllCryptographicData)
-        val freshMeshService = MeshServiceHolder.getOrCreate(getApplication())
-        val freshUnifiedMeshService = MeshServiceHolder.getUnifiedOrCreate(getApplication())
-
-        // Replace our reference and set up the new service
-        meshService = freshMeshService
-        unifiedMeshService = freshUnifiedMeshService
-        mesh.delegate = this
-
-        // Restart mesh operations with new identity
-        mesh.startServices()
-        mesh.sendBroadcastAnnounce()
-
-        Log.d(
-            TAG,
-            "✅ Mesh service recreated. Old peerID: $oldPeerID, New peerID: ${mesh.myPeerID}"
-        )
-    }
-    
-    /**
-     * Clear all mesh service related data
-     */
-    private fun clearAllMeshServiceData() {
-        try {
-            // Request mesh service to clear all its internal data
-            mesh.clearAllInternalData()
-            
-            Log.d(TAG, "✅ Cleared all mesh service data")
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Error clearing mesh service data: ${e.message}")
-        }
-    }
-    
-    /**
-     * Clear all cryptographic data including persistent identity
-     */
-    private fun clearAllCryptographicData() {
-        try {
-            // Clear encryption service persistent identity (Ed25519 signing keys)
-            mesh.clearAllEncryptionData()
-            
-            // Clear secure identity state (if used)
-            try {
-                val identityManager = SecureIdentityStateManager(getApplication())
-                identityManager.clearIdentityData()
-                // Also clear secure values used by FavoritesPersistenceService (favorites + peerID index)
-                try {
-                    identityManager.clearSecureValues("favorite_relationships", "favorite_peerid_index")
-                } catch (_: Exception) { }
-                Log.d(TAG, "✅ Cleared secure identity state and secure favorites store")
             } catch (e: Exception) {
-                Log.d(TAG, "SecureIdentityStateManager not available or already cleared: ${e.message}")
+                _operationError.value = "Android could not erase app data. Use Settings > Apps > Outpost > Storage > Clear data."
             }
-
-            // Clear FavoritesPersistenceService persistent relationships
-            try {
-                FavoritesPersistenceService.shared.clearAllFavorites()
-                Log.d(TAG, "✅ Cleared FavoritesPersistenceService relationships")
-            } catch (_: Exception) { }
-            
-            Log.d(TAG, "✅ Cleared all cryptographic data")
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Error clearing cryptographic data: ${e.message}")
         }
     }
 

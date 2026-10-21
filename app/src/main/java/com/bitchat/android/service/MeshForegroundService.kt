@@ -82,8 +82,7 @@ class MeshForegroundService : Service() {
 
         private fun shouldStartAsForeground(context: Context): Boolean {
             return MeshServicePreferences.isBackgroundEnabled(true) &&
-                    hasBluetoothPermissionsStatic(context) &&
-                    hasNotificationPermissionStatic(context)
+                    hasBluetoothPermissionsStatic(context)
         }
 
         private fun hasBluetoothPermissionsStatic(ctx: Context): Boolean {
@@ -98,11 +97,7 @@ class MeshForegroundService : Service() {
             }
         }
 
-        private fun hasNotificationPermissionStatic(ctx: Context): Boolean {
-            return if (Build.VERSION.SDK_INT >= 33) {
-                androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED
-            } else true
-        }
+
     }
 
     private lateinit var notificationManager: NotificationManagerCompat
@@ -115,6 +110,15 @@ class MeshForegroundService : Service() {
     private val scope = CoroutineScope(Dispatchers.Default + serviceJob)
     private var isInForeground: Boolean = false
     private var isShuttingDown: Boolean = false
+    private val bluetoothStateReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            when (intent.getIntExtra(android.bluetooth.BluetoothAdapter.EXTRA_STATE, -1)) {
+                android.bluetooth.BluetoothAdapter.STATE_OFF,
+                android.bluetooth.BluetoothAdapter.STATE_TURNING_OFF -> meshService?.setBleTransportEnabled(false)
+                android.bluetooth.BluetoothAdapter.STATE_ON -> scope.launch { ensureMeshStarted() }
+            }
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -130,7 +134,11 @@ class MeshForegroundService : Service() {
             Log.i("MeshForegroundService", "Created new BluetoothMeshService via holder")
             MeshServiceHolder.attach(created)
         }
-        MeshServiceHolder.getUnifiedOrCreate(applicationContext)
+        val unified = MeshServiceHolder.getUnifiedOrCreate(applicationContext)
+        com.bitchat.android.services.MessageRouter.getInstance(applicationContext, unified)
+        androidx.core.content.ContextCompat.registerReceiver(this, bluetoothStateReceiver,
+            android.content.IntentFilter(android.bluetooth.BluetoothAdapter.ACTION_STATE_CHANGED),
+            androidx.core.content.ContextCompat.RECEIVER_EXPORTED)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -222,7 +230,7 @@ class MeshForegroundService : Service() {
     }
 
     private fun ensureMeshStarted() {
-        if (isShuttingDown) return
+        if (isShuttingDown || !com.bitchat.android.services.AppStateStore.historyReady.value) return
         try {
             com.bitchat.android.wifiaware.WifiAwareController.startIfPossible()
         } catch (e: Exception) {
@@ -256,7 +264,10 @@ class MeshForegroundService : Service() {
         val count = getUnifiedActivePeerCount()
         val notification = buildNotification(count)
         if (MeshServicePreferences.isBackgroundEnabled(true) && hasAllRequiredPermissions()) {
-            notificationManager.notify(NOTIFICATION_ID, notification)
+            if (hasNotificationPermission()) {
+                try { notificationManager.notify(NOTIFICATION_ID, notification) }
+                catch (e: SecurityException) { Log.w("MeshForegroundService", "Notification access was revoked", e) }
+            }
         } else if (force) {
             // If disabled and forced, make sure to remove any prior foreground state
             try { stopForeground(false) } catch (_: Exception) { }
@@ -266,11 +277,8 @@ class MeshForegroundService : Service() {
     }
 
     private fun hasAllRequiredPermissions(): Boolean {
-        // For starting FGS with connectedDevice|dataSync, we need:
-        // - Foreground service permissions (declared in manifest)
-        // - One of the device-related permissions (we request BL perms at runtime)
-        // - On Android 13+, POST_NOTIFICATIONS to actually show notification
-        return hasBluetoothPermissions() && hasNotificationPermission()
+        // POST_NOTIFICATIONS controls notification-drawer visibility, not eligibility to run an FGS.
+        return hasBluetoothPermissions()
     }
 
     private fun getUnifiedActivePeerCount(): Int {
@@ -380,6 +388,7 @@ class MeshForegroundService : Service() {
     }
 
     override fun onDestroy() {
+        try { unregisterReceiver(bluetoothStateReceiver) } catch (_: IllegalArgumentException) { }
         updateJob?.cancel()
         updateJob = null
         // Cancel the service coroutine scope to prevent leaks

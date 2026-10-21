@@ -100,6 +100,7 @@ class MessageManager(private val state: ChatState) {
     // MARK: - Private Message Management
 
     fun addPrivateMessage(peerID: String, message: BitchatMessage) {
+        if (!com.bitchat.android.services.AppStateStore.accepts(message.timestamp.time, peer = peerID)) return
         val currentPrivateChats = state.getPrivateChatsValue().toMutableMap()
         if (!currentPrivateChats.containsKey(peerID)) {
             currentPrivateChats[peerID] = mutableListOf()
@@ -122,6 +123,7 @@ class MessageManager(private val state: ChatState) {
 
     // Variant that does not mark unread (used when we know the message has been read already, e.g., persisted Nostr read store)
     fun addPrivateMessageNoUnread(peerID: String, message: BitchatMessage) {
+        if (!com.bitchat.android.services.AppStateStore.accepts(message.timestamp.time, peer = peerID)) return
         val currentPrivateChats = state.getPrivateChatsValue().toMutableMap()
         if (!currentPrivateChats.containsKey(peerID)) {
             currentPrivateChats[peerID] = mutableListOf()
@@ -225,6 +227,7 @@ class MessageManager(private val state: ChatState) {
     }
 
     private fun chooseStatus(old: DeliveryStatus?, new: DeliveryStatus): DeliveryStatus? {
+        if (new is DeliveryStatus.Failed && old !is DeliveryStatus.Delivered && old !is DeliveryStatus.Read) return new
         // Never downgrade (e.g., Read -> Delivered). Keep the higher priority.
         return if (statusPriority(new) >= statusPriority(old)) new else old
     }

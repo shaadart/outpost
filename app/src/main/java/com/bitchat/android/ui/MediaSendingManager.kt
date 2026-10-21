@@ -16,6 +16,7 @@ class MediaSendingManager(
     private val state: ChatState,
     private val messageManager: MessageManager,
     private val channelManager: ChannelManager,
+    private val onError: (String) -> Unit = {},
     private val getMeshService: () -> MeshService
 ) {
     // Helper to get current mesh service (may change after panic clear)
@@ -23,7 +24,7 @@ class MediaSendingManager(
         get() = getMeshService()
     companion object {
         private const val TAG = "MediaSendingManager"
-        private const val MAX_FILE_SIZE = com.bitchat.android.util.AppConstants.Media.MAX_FILE_SIZE_BYTES // 50MB limit
+        private const val MAX_FILE_SIZE = com.bitchat.android.util.AppConstants.Media.MAX_FILE_SIZE_BYTES // mesh transfer limit
     }
 
     // Track in-flight transfer progress: transferId -> messageId and reverse
@@ -37,12 +38,14 @@ class MediaSendingManager(
         try {
             val file = java.io.File(filePath)
             if (!file.exists()) {
+                onError("The attachment is no longer available.")
                 Log.e(TAG, "❌ File does not exist: $filePath")
                 return
             }
             Log.d(TAG, "📁 File exists: size=${file.length()} bytes, name=${file.name}")
             
             if (file.length() > MAX_FILE_SIZE) {
+                onError("Attachment is too large. Maximum size is 96 KB.")
                 Log.e(TAG, "❌ File too large: ${file.length()} bytes (max: $MAX_FILE_SIZE)")
                 return
             }
@@ -60,6 +63,7 @@ class MediaSendingManager(
                 sendPublicFile(channelOrNull, filePacket, filePath, BitchatMessageType.Audio)
             }
         } catch (e: Exception) {
+            onError("Could not send attachment. Please try again.")
             Log.e(TAG, "Failed to send voice note: ${e.message}")
         }
     }
@@ -72,12 +76,14 @@ class MediaSendingManager(
             Log.d(TAG, "🔄 Starting image send: $filePath")
             val file = java.io.File(filePath)
             if (!file.exists()) {
+                onError("The attachment is no longer available.")
                 Log.e(TAG, "❌ File does not exist: $filePath")
                 return
             }
             Log.d(TAG, "📁 File exists: size=${file.length()} bytes, name=${file.name}")
             
             if (file.length() > MAX_FILE_SIZE) {
+                onError("Attachment is too large. Maximum size is 96 KB.")
                 Log.e(TAG, "❌ File too large: ${file.length()} bytes (max: $MAX_FILE_SIZE)")
                 return
             }
@@ -95,6 +101,7 @@ class MediaSendingManager(
                 sendPublicFile(channelOrNull, filePacket, filePath, BitchatMessageType.Image)
             }
         } catch (e: Exception) {
+            onError("Could not send attachment. Please try again.")
             Log.e(TAG, "❌ CRITICAL: Image send failed completely", e)
             Log.e(TAG, "❌ Image path: $filePath")
             Log.e(TAG, "❌ Error details: ${e.message}")
@@ -110,12 +117,14 @@ class MediaSendingManager(
             Log.d(TAG, "🔄 Starting file send: $filePath")
             val file = java.io.File(filePath)
             if (!file.exists()) {
+                onError("The attachment is no longer available.")
                 Log.e(TAG, "❌ File does not exist: $filePath")
                 return
             }
             Log.d(TAG, "📁 File exists: size=${file.length()} bytes, name=${file.name}")
             
             if (file.length() > MAX_FILE_SIZE) {
+                onError("Attachment is too large. Maximum size is 96 KB.")
                 Log.e(TAG, "❌ File too large: ${file.length()} bytes (max: $MAX_FILE_SIZE)")
                 return
             }
@@ -158,6 +167,7 @@ class MediaSendingManager(
                 sendPublicFile(channelOrNull, filePacket, filePath, messageType)
             }
         } catch (e: Exception) {
+            onError("Could not send attachment. Please try again.")
             Log.e(TAG, "❌ CRITICAL: File send failed completely", e)
             Log.e(TAG, "❌ File path: $filePath")
             Log.e(TAG, "❌ Error details: ${e.message}")
@@ -245,7 +255,8 @@ class MediaSendingManager(
             timestamp = Date(),
             isRelay = false,
             senderPeerID = meshService.myPeerID,
-            channel = channelOrNull
+            channel = channelOrNull,
+            isEncrypted = channelOrNull?.let(com.bitchat.android.groups.GroupInvite::isGroup) == true
         )
         
         if (!channelOrNull.isNullOrBlank()) {
@@ -266,7 +277,7 @@ class MediaSendingManager(
         )
         
         Log.d(TAG, "📤 Calling meshService.sendFileBroadcast")
-        meshService.sendFileBroadcast(filePacket)
+        meshService.sendFileBroadcast(filePacket, channelOrNull)
         Log.d(TAG, "✅ File broadcast completed successfully")
     }
 
@@ -324,7 +335,7 @@ class MediaSendingManager(
             if (evt.completed) {
                 messageManager.updateMessageDeliveryStatus(
                     msgId,
-                    com.bitchat.android.model.DeliveryStatus.Delivered(to = "mesh", at = java.util.Date())
+                    com.bitchat.android.model.DeliveryStatus.Sent
                 )
                 synchronized(transferMessageMap) {
                     val msgIdRemoved = transferMessageMap.remove(evt.transferId)

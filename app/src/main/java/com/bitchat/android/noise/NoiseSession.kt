@@ -71,21 +71,23 @@ class NoiseSession(
             val newReplayWindow = replayWindow.copyOf()
             
             if (receivedNonce > highestReceivedNonce) {
-                val shift = (receivedNonce - highestReceivedNonce).toInt()
+                val shift = (receivedNonce - highestReceivedNonce)
+                    .coerceAtMost(REPLAY_WINDOW_SIZE.toLong()).toInt()
                 
                 if (shift >= REPLAY_WINDOW_SIZE) {
                     // Clear entire window - shift is too large
                     newReplayWindow.fill(0)
                 } else {
-                    // Shift window right by `shift` bits
+                    // Bit zero is the newest nonce. Advancing the high-water mark moves
+                    // previously seen nonces toward larger offsets (left within each byte).
                     for (i in (REPLAY_WINDOW_BYTES - 1) downTo 0) {
                         val sourceByteIndex = i - shift / 8
                         var newByte = 0
                         
                         if (sourceByteIndex >= 0) {
-                            newByte = (newReplayWindow[sourceByteIndex].toInt() and 0xFF) ushr (shift % 8)
+                            newByte = (replayWindow[sourceByteIndex].toInt() and 0xFF) shl (shift % 8)
                             if (sourceByteIndex > 0 && shift % 8 != 0) {
-                                newByte = newByte or ((newReplayWindow[sourceByteIndex - 1].toInt() and 0xFF) shl (8 - shift % 8))
+                                newByte = newByte or ((replayWindow[sourceByteIndex - 1].toInt() and 0xFF) ushr (8 - shift % 8))
                             }
                         }
                         

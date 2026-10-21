@@ -79,6 +79,10 @@ class GossipSyncManager(
         cleanupJob?.cancel(); cleanupJob = null
     }
 
+    fun clearMessageCache() {
+        synchronized(messages) { messages.clear() }
+    }
+
     fun scheduleInitialSync(delayMs: Long = 5_000L) {
         scope.launch(Dispatchers.IO) {
             delay(delayMs)

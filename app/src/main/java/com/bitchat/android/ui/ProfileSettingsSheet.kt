@@ -170,7 +170,7 @@ fun ProfileSettingsSheet(
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(
                 value = editingNickname,
-                onValueChange = { editingNickname = it },
+                onValueChange = { editingNickname = it.filterNot { c -> c.isISOControl() }.take(32) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -183,7 +183,7 @@ fun ProfileSettingsSheet(
             Spacer(modifier = Modifier.height(8.dp))
             Button(
                 onClick = {
-                    viewModel.setNickname(editingNickname)
+                    viewModel.setNickname(editingNickname.trim())
                 },
                 enabled = editingNickname.isNotBlank() && editingNickname != nickname,
                 colors = ButtonDefaults.buttonColors(
@@ -232,7 +232,9 @@ fun ProfileSettingsSheet(
                         if (qr != null) {
                             val success = viewModel.beginQRVerification(qr)
                             if (success) {
-                                viewModel.showPrivateChatSheet(qr.nickname)
+                                viewModel.connectedPeers.value.firstOrNull { id ->
+                                    viewModel.getMeshPeerInfo(id)?.noisePublicKey?.joinToString("") { "%02x".format(it) }?.equals(qr.noiseKeyHex, true) == true
+                                }?.let { viewModel.switchToChannel(null); viewModel.startPrivateChat(it); onDismiss() }
                                 showScanner = false
                                 onDismiss()
                             } else {

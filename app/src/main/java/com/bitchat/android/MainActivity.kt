@@ -33,6 +33,7 @@ import com.bitchat.android.nostr.PoWPreferenceManager
 import com.bitchat.android.services.VerificationService
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 
 class MainActivity : OrientationAwareActivity() {
 
@@ -41,6 +42,8 @@ class MainActivity : OrientationAwareActivity() {
     private lateinit var unifiedMeshService: MeshService
     private var pendingMeshForegroundServiceStart = false
     private var isAppInitialized = false
+    private var initializingApp = false
+    private var pendingGroupLink by mutableStateOf<String?>(null)
 
     private val chatViewModel: ChatViewModel by viewModels { 
         object : ViewModelProvider.Factory {
@@ -67,23 +70,11 @@ class MainActivity : OrientationAwareActivity() {
         }
         
         val filter = android.content.IntentFilter(com.bitchat.android.util.AppConstants.UI.ACTION_FORCE_FINISH)
-        if (Build.VERSION.SDK_INT >= 33) {
-            registerReceiver(
-                forceFinishReceiver,
-                filter,
-                com.bitchat.android.util.AppConstants.UI.PERMISSION_FORCE_FINISH,
-                null,
-                android.content.Context.RECEIVER_NOT_EXPORTED
-            )
-        } else {
-            @Suppress("DEPRECATION")
-            registerReceiver(
-                forceFinishReceiver,
-                filter,
-                com.bitchat.android.util.AppConstants.UI.PERMISSION_FORCE_FINISH,
-                null
-            )
-        }
+        androidx.core.content.ContextCompat.registerReceiver(
+            this, forceFinishReceiver, filter,
+            com.bitchat.android.util.AppConstants.UI.PERMISSION_FORCE_FINISH,
+            null, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED
+        )
         
         if (intent.getBooleanExtra("ACTION_QUIT_APP", false)) {
             Log.d("MainActivity", "Quit request received in onCreate, finishing activity")
@@ -95,7 +86,7 @@ class MainActivity : OrientationAwareActivity() {
         enableEdgeToEdge()
 
         permissionManager = PermissionManager(this)
-        startMeshForegroundServiceBestEffort()
+        pendingGroupLink = intent.dataString?.takeIf { com.bitchat.android.groups.GroupInvite.parse(it) != null }
         meshService = com.bitchat.android.service.MeshServiceHolder.getOrCreate(applicationContext)
         unifiedMeshService = com.bitchat.android.service.MeshServiceHolder.getUnifiedOrCreate(applicationContext)
 
@@ -120,21 +111,15 @@ class MainActivity : OrientationAwareActivity() {
             }
 
             OutpostTheme {
-                Scaffold(
-                    modifier = Modifier.fillMaxSize(),
-                    containerColor = MaterialTheme.colorScheme.background
-                ) { innerPadding ->
+                androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize()) {
                     if (onboardingComplete) {
-                        ChatScreen(viewModel = chatViewModel)
+                        ChatScreen(viewModel = chatViewModel, initialGroupLink = pendingGroupLink,
+                            onGroupLinkHandled = { pendingGroupLink = null })
                     } else {
                         OnboardingScreen(
                             onComplete = { displayName ->
                                 chatViewModel.completeOnboarding(displayName)
                                 onboardingComplete = true
-                                // Kick off mesh service + permissions now that user is onboarded
-                                lifecycleScope.launch {
-                                    checkAndRequestPermissions()
-                                }
                             }
                         )
                     }
@@ -164,10 +149,14 @@ class MainActivity : OrientationAwareActivity() {
         // Only request permissions if we don't have them
         if (!permissionManager.areAllPermissionsGranted()) {
             val missingPermissions = permissionManager.getMissingPermissions()
-            if (missingPermissions.isNotEmpty()) {
+            if (missingPermissions.isNotEmpty() && permissionManager.isFirstTimeLaunch()) {
+                // Respect refusal across Activity/process recreation. The connection-settings
+                // action lets the user grant access later without automatic repeated prompts.
+                permissionManager.markOnboardingComplete()
                 requestPermissions(missingPermissions.toTypedArray(), 1001)
             }
         } else {
+            permissionManager.markOnboardingComplete()
             initializeApp()
         }
     }
@@ -182,19 +171,19 @@ class MainActivity : OrientationAwareActivity() {
             if (permissionManager.areRequiredPermissionsGranted()) {
                 initializeApp()
             } else {
-                Log.w("MainActivity", "Required permissions not granted")
-                // Even if not fully granted, try to start with what we have
-                initializeApp()
+                android.widget.Toast.makeText(this, "Allow nearby and location access in Android settings to use the mesh.", android.widget.Toast.LENGTH_LONG).show()
             }
         }
     }
 
     private fun initializeApp() {
-        if (isAppInitialized) return
+        if (isAppInitialized || initializingApp || !permissionManager.areRequiredPermissionsGranted()) return
+        initializingApp = true
         
         Log.d("MainActivity", "Starting app initialization")
         lifecycleScope.launch {
             try {
+                com.bitchat.android.services.AppStateStore.historyReady.first { it }
                 PoWPreferenceManager.init(this@MainActivity)
                 com.bitchat.android.nostr.LocationNotesInitializer.initialize(this@MainActivity)
                 
@@ -211,6 +200,8 @@ class MainActivity : OrientationAwareActivity() {
                 Log.d("MainActivity", "App initialization complete")
             } catch (e: Exception) {
                 Log.e("MainActivity", "Failed to initialize app", e)
+            } finally {
+                initializingApp = false
             }
         }
     }
@@ -233,6 +224,7 @@ class MainActivity : OrientationAwareActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        intent.dataString?.takeIf { com.bitchat.android.groups.GroupInvite.parse(it) != null }?.let { pendingGroupLink = it }
         
         if (intent.getBooleanExtra("ACTION_QUIT_APP", false)) {
             Log.d("MainActivity", "Quit request received, finishing activity")
@@ -259,6 +251,11 @@ class MainActivity : OrientationAwareActivity() {
         super.onResume()
         if (isAppInitialized) {
             try { unifiedMeshService.delegate = chatViewModel } catch (_: Exception) { }
+            if (permissionManager.areRequiredPermissionsGranted()) startMeshForegroundServiceBestEffort()
+        } else if (::permissionManager.isInitialized &&
+            getSharedPreferences("bitchat_prefs", MODE_PRIVATE).getBoolean("onboarding_complete", false) &&
+            permissionManager.areRequiredPermissionsGranted()) {
+            initializeApp()
         }
     }
 
@@ -292,8 +289,8 @@ class MainActivity : OrientationAwareActivity() {
                     Log.d("MainActivity", "Opening private chat with $senderNickname (peerID: $peerID) from notification")
                     
                     // Open the private chat sheet with this peer
-                    chatViewModel.showMeshPeerList()
-                    chatViewModel.showPrivateChatSheet(peerID)
+                    chatViewModel.switchToChannel(null)
+                    chatViewModel.startPrivateChat(peerID)
                     
                     // Clear notifications for this sender since user is now viewing the chat
                     chatViewModel.clearNotificationsForSender(peerID)

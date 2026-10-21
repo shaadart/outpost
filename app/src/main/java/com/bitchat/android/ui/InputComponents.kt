@@ -225,12 +225,9 @@ fun MessageInput(
             if (!isRecording) {
                 // Revert to original separate buttons: round File button (left) and the old Image plus button (right)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    // DISABLE FILE PICKER
-                    //FilePickerButton(
-                    //    onFileReady = { path ->
-                    //        onSendFileNote(latestSelectedPeer.value, latestChannel.value, path)
-                    //    }
-                    //)
+                    FilePickerButton(
+                        onFileReady = { path -> onSendFileNote(latestSelectedPeer.value, latestChannel.value, path) }
+                    )
                     ImagePickerButton(
                         onImageReady = { outPath ->
                             onSendImageNote(latestSelectedPeer.value, latestChannel.value, outPath)
@@ -383,5 +380,50 @@ fun MentionSuggestionItem(
             color = colorScheme.onSurface.copy(alpha = 0.7f),
             fontSize = (BASE_FONT_SIZE - 5).sp
         )
+    }
+}
+
+@Composable
+fun ChatInputSection(
+        messageText: TextFieldValue,
+        onMessageTextChange: (TextFieldValue) -> Unit,
+        onSend: () -> Unit,
+        onSendVoiceNote: (String?, String?, String) -> Unit,
+        onSendImageNote: (String?, String?, String) -> Unit,
+        onSendFileNote: (String?, String?, String) -> Unit,
+        showMentionSuggestions: Boolean,
+        mentionSuggestions: List<String>,
+        onMentionSuggestionClick: (String) -> Unit,
+        selectedPrivatePeer: String?,
+        currentChannel: String?,
+        nickname: String,
+        colorScheme: ColorScheme,
+        showMediaButtons: Boolean
+) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = colorScheme.background) {
+        Column {
+            HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
+            if (showMentionSuggestions && mentionSuggestions.isNotEmpty()) {
+                MentionSuggestionsBox(
+                        suggestions = mentionSuggestions,
+                        onSuggestionClick = onMentionSuggestionClick,
+                        modifier = Modifier.fillMaxWidth()
+                )
+                HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.2f))
+            }
+            MessageInput(
+                    value = messageText,
+                    onValueChange = onMessageTextChange,
+                    onSend = onSend,
+                    onSendVoiceNote = onSendVoiceNote,
+                    onSendImageNote = onSendImageNote,
+                    onSendFileNote = onSendFileNote,
+                    selectedPrivatePeer = selectedPrivatePeer,
+                    currentChannel = currentChannel,
+                    nickname = nickname,
+                    showMediaButtons = showMediaButtons,
+                    modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }

@@ -11,72 +11,67 @@ import java.io.FileOutputStream
 import java.io.InputStream
 
 object ImageUtils {
-    fun downscaleAndSaveToAppFiles(context: Context, uri: Uri, maxDim: Int = 512, quality: Int = 85): String? {
-        return try {
-            val resolver = context.contentResolver
-            val exifRotation = resolver.openInputStream(uri)?.use { getRotationDegreesFromExif(it) } ?: 0
+    fun downscaleAndSaveToAppFiles(context: Context, uri: Uri, maxDim: Int = 512, quality: Int = 85): String? =
+        saveScaled(context, maxDim, quality) { context.contentResolver.openInputStream(uri) }
 
-            // Reopen for decode as the previous stream is consumed
-            val input = resolver.openInputStream(uri) ?: return null
-            val original = BitmapFactory.decodeStream(input)
-            input.close()
-            original ?: return null
+    fun downscalePathAndSaveToAppFiles(context: Context, path: String, maxDim: Int = 512, quality: Int = 85): String? =
+        saveScaled(context, maxDim, quality) { File(path).inputStream() }
 
-            val oriented = if (exifRotation != 0) rotateBitmap(original, exifRotation) else original
-
-            val w = oriented.width
-            val h = oriented.height
-            val scale = (maxOf(w, h).toFloat() / maxDim.toFloat()).coerceAtLeast(1f)
-            val newW = (w / scale).toInt().coerceAtLeast(1)
-            val newH = (h / scale).toInt().coerceAtLeast(1)
-            val scaled = if (scale > 1f) Bitmap.createScaledBitmap(oriented, newW, newH, true) else oriented
-            val dir = File(context.filesDir, "images/outgoing").apply { mkdirs() }
-            val outFile = File(dir, "img_${System.currentTimeMillis()}.jpg")
-            FileOutputStream(outFile).use { fos ->
-                scaled.compress(Bitmap.CompressFormat.JPEG, quality, fos)
-            }
-            try { if (oriented !== original) original.recycle() } catch (_: Exception) {}
-            try { if (scaled !== oriented) oriented.recycle() } catch (_: Exception) {}
-            outFile.absolutePath
-        } catch (e: Exception) {
-            null
-        }
+    /** Read dimensions before allocating pixels, including for very large camera originals. */
+    private fun decodeSampled(maxDim: Int, open: () -> InputStream?): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        val probe = open() ?: return null
+        probe.use { BitmapFactory.decodeStream(it, null, bounds) }
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+        var sample = 1
+        while (maxOf(bounds.outWidth, bounds.outHeight) / sample > maxDim * 2) sample *= 2
+        val options = BitmapFactory.Options().apply { inSampleSize = sample }
+        return open()?.use { BitmapFactory.decodeStream(it, null, options) }
     }
 
-    fun downscalePathAndSaveToAppFiles(context: Context, path: String, maxDim: Int = 512, quality: Int = 85): String? {
+    private fun saveScaled(context: Context, maxDim: Int, quality: Int, open: () -> InputStream?): String? {
+        var bitmap: Bitmap? = null
+        var target: File? = null
         return try {
-            val original = BitmapFactory.decodeFile(path) ?: return null
-            val exifRotation = getRotationDegreesFromExif(path)
-            val oriented = if (exifRotation != 0) rotateBitmap(original, exifRotation) else original
-
-            val w = oriented.width
-            val h = oriented.height
-            val scale = (maxOf(w, h).toFloat() / maxDim.toFloat()).coerceAtLeast(1f)
-            val newW = (w / scale).toInt().coerceAtLeast(1)
-            val newH = (h / scale).toInt().coerceAtLeast(1)
-            val scaled = if (scale > 1f) Bitmap.createScaledBitmap(oriented, newW, newH, true) else oriented
-            val dir = File(context.filesDir, "images/outgoing").apply { mkdirs() }
-            val outFile = File(dir, "img_${System.currentTimeMillis()}.jpg")
-            FileOutputStream(outFile).use { fos ->
-                scaled.compress(Bitmap.CompressFormat.JPEG, quality, fos)
+            require(maxDim in 1..2048)
+            val rotation = open()?.use { getRotationDegreesFromExif(it) } ?: 0
+            bitmap = decodeSampled(maxDim, open) ?: return null
+            if (rotation != 0) bitmap = rotateBitmap(bitmap, rotation)
+            val current = requireNotNull(bitmap)
+            val scale = (maxOf(current.width, current.height).toFloat() / maxDim).coerceAtLeast(1f)
+            if (scale > 1f) {
+                bitmap = Bitmap.createScaledBitmap(current,
+                    (current.width / scale).toInt().coerceAtLeast(1),
+                    (current.height / scale).toInt().coerceAtLeast(1), true)
+                if (bitmap !== current) current.recycle()
             }
-            try { if (oriented !== original) original.recycle() } catch (_: Exception) {}
-            try { if (scaled !== oriented) oriented.recycle() } catch (_: Exception) {}
-            outFile.absolutePath
-        } catch (e: Exception) {
-            null
-        }
-    }
-
-    fun loadBitmapWithExifOrientation(path: String): Bitmap? {
-        return try {
-            val base = BitmapFactory.decodeFile(path) ?: return null
-            val rotation = getRotationDegreesFromExif(path)
-            if (rotation != 0) rotateBitmap(base, rotation) else base
+            val dir = File(context.filesDir, "images/outgoing").apply { check(isDirectory || mkdirs()) }
+            target = File.createTempFile("img_", ".jpg", dir)
+            var jpegQuality = quality.coerceIn(25, 95)
+            while (true) {
+                FileOutputStream(target).use { check(requireNotNull(bitmap).compress(Bitmap.CompressFormat.JPEG, jpegQuality, it)) }
+                if (target.length() <= com.bitchat.android.util.AppConstants.Media.MAX_FILE_SIZE_BYTES) break
+                if (jpegQuality > 25) {
+                    jpegQuality = (jpegQuality - 15).coerceAtLeast(25)
+                } else {
+                    val old = requireNotNull(bitmap)
+                    check(old.width > 1 || old.height > 1) { "Image cannot fit mesh transfer limit" }
+                    bitmap = Bitmap.createScaledBitmap(old, (old.width / 2).coerceAtLeast(1), (old.height / 2).coerceAtLeast(1), true)
+                    if (bitmap !== old) old.recycle()
+                }
+            }
+            target.absolutePath
         } catch (_: Exception) {
+            target?.delete()
             null
-        }
+        } finally { bitmap?.let { if (!it.isRecycled) it.recycle() } }
     }
+
+    fun loadBitmapWithExifOrientation(path: String): Bitmap? = try {
+        val base = decodeSampled(1024) { File(path).inputStream() }
+        val rotation = getRotationDegreesFromExif(path)
+        if (base != null && rotation != 0) rotateBitmap(base, rotation) else base
+    } catch (_: Exception) { null }
 
     private fun rotateBitmap(src: Bitmap, degrees: Int): Bitmap {
         return try {

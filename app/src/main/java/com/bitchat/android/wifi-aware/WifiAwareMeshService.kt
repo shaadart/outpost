@@ -1384,8 +1384,8 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
      *
      * @param file Encoded metadata and chunks descriptor of the file to send.
      */
-    override fun sendFileBroadcast(file: BitchatFilePacket) {
-        meshCore.sendFileBroadcast(file)
+    override fun sendFileBroadcast(file: BitchatFilePacket, channel: String?) {
+        meshCore.sendFileBroadcast(file, channel)
     }
 
     /**

@@ -173,7 +173,7 @@ class BluetoothConnectionManager(
                 toEvict.forEach { conn ->
                     if (conn.isClient) {
                         Log.d(TAG, "Evicting client ${conn.device.address}")
-                        try { conn.gatt?.disconnect() } catch (_: Exception) { }
+                        try { conn.gatt?.disconnectSafely() } catch (_: Exception) { }
                     } else {
                         Log.d(TAG, "Evicting server ${conn.device.address}")
                         serverManager.disconnectDevice(conn.device)

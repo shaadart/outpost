@@ -1,5 +1,7 @@
 package com.bitchat.android.mesh
 
+import com.bitchat.android.groups.GroupMessageCodec
+import com.bitchat.android.groups.GroupRepository
 import android.content.Context
 import android.util.Log
 import com.bitchat.android.crypto.EncryptionService
@@ -264,10 +266,6 @@ class MeshCore(
                 return encryptionService.verifyEd25519Signature(signature, data, publicKey)
             }
 
-            override fun processOfficialBroadcast(payload: ByteArray): Pair<Boolean, ByteArray>? {
-                return securityManager.processOfficialBroadcast(payload)
-            }
-
             override fun hasNoiseSession(peerID: String): Boolean {
                 return encryptionService.hasEstablishedSession(peerID)
             }
@@ -417,14 +415,20 @@ class MeshCore(
 
     fun sendMessage(content: String, mentions: List<String> = emptyList(), channel: String? = null) {
         if (content.isEmpty()) return
+        val sentAt = System.currentTimeMillis()
         scope.launch {
+            if (!com.bitchat.android.services.AppStateStore.accepts(sentAt, channel = channel)) return@launch
+            val payload = if (channel != null) {
+                val group = GroupRepository.getInstance(context).get(channel) ?: return@launch
+                GroupMessageCodec.encrypt(channel, group.keyBytes(), content.toByteArray(Charsets.UTF_8))
+            } else content.toByteArray(Charsets.UTF_8)
             val packet = BitchatPacket(
-                version = 1u,
+                version = if (channel == null) 1u else 2u,
                 type = MessageType.MESSAGE.value,
                 senderID = MeshPacketUtils.hexStringToByteArray(myPeerID),
                 recipientID = SpecialRecipients.BROADCAST,
-                timestamp = System.currentTimeMillis().toULong(),
-                payload = content.toByteArray(Charsets.UTF_8),
+                timestamp = sentAt.toULong(),
+                payload = payload,
                 signature = null,
                 ttl = maxTtl
             )
@@ -434,9 +438,13 @@ class MeshCore(
         }
     }
 
-    fun sendFileBroadcast(file: BitchatFilePacket) {
+    fun sendFileBroadcast(file: BitchatFilePacket, channel: String? = null) {
         try {
-            val payload = file.encode() ?: return
+            val rawPayload = file.encode() ?: return
+            val payload = if (channel != null) {
+                val group = GroupRepository.getInstance(context).get(channel) ?: return
+                GroupMessageCodec.encrypt(channel, group.keyBytes(), rawPayload, isFile = true)
+            } else rawPayload
             scope.launch {
                 val packet = BitchatPacket(
                     version = 2u,
@@ -449,7 +457,7 @@ class MeshCore(
                     ttl = maxTtl
                 )
                 val signed = signPacketBeforeBroadcast(packet)
-                val transferId = MeshPacketUtils.sha256Hex(payload)
+                val transferId = MeshPacketUtils.sha256Hex(rawPayload)
                 dispatchGlobal(RoutedPacket(signed, transferId = transferId))
                 try { gossipSyncManager.onPublicPacketSeen(signed) } catch (_: Exception) { }
             }

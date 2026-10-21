@@ -23,7 +23,6 @@ android {
             useSupportLibrary = true
         }
         
-        buildConfigField("String", "VERIFIED_PUB_KEY", "\"0000000000000000000000000000000000000000000000000000000000000000\"") // Placeholder 32-byte hex
     }
 
     dependenciesInfo {
@@ -38,8 +37,8 @@ android {
             val keystorePropsFile = rootProject.file("keystore.properties")
             if (keystorePropsFile.exists()) {
                 val props = Properties()
-                props.load(keystorePropsFile.reader())
-                storeFile = file(props.getProperty("storeFile"))
+                keystorePropsFile.reader().use { props.load(it) }
+                storeFile = rootProject.file(props.getProperty("storeFile"))
                 storePassword = props.getProperty("storePassword")
                 keyAlias = props.getProperty("keyAlias")
                 keyPassword = props.getProperty("keyPassword")
@@ -61,7 +60,15 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.findByName("release")
+            signingConfig = signingConfigs.findByName("release")?.takeIf { it.storeFile != null }
+        }
+        create("qa") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".qa"
+            versionNameSuffix = "-qa"
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+            resValue("string", "app_name", "Outpost QA")
         }
     }
 
@@ -94,15 +101,17 @@ android {
         compose = true
         buildConfig = true
     }
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
     lint {
-        baseline = file("lint-baseline.xml")
-        abortOnError = false
-        checkReleaseBuilds = false
+        abortOnError = true
+        checkReleaseBuilds = true
     }
 }
 
@@ -169,5 +178,6 @@ dependencies {
     testImplementation(libs.bundles.testing)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.bundles.compose.testing)
+    androidTestImplementation(libs.androidx.test.ext.junit)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

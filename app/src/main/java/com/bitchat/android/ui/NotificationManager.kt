@@ -52,6 +52,14 @@ class NotificationManager(
         const val EXTRA_GEOHASH = "geohash"
     }
 
+    private fun postNotification(id: Int, notification: android.app.Notification) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS)
+                != android.content.pm.PackageManager.PERMISSION_GRANTED) return
+        try { notificationManager.notify(id, notification) }
+        catch (e: SecurityException) { Log.w(TAG, "Notification access was revoked", e) }
+    }
+
     private val systemNotificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     
     // Track pending notifications per sender to enable grouping
@@ -275,7 +283,7 @@ class NotificationManager(
 
         // Use sender peer ID hash as notification ID to group messages from same sender
         val notificationId = senderPeerID.hashCode()
-        notificationManager.notify(notificationId, builder.build())
+        postNotification(notificationId, builder.build())
 
         Log.d(TAG, "Displayed notification for $contentTitle with ID $notificationId")
     }
@@ -308,7 +316,7 @@ class NotificationManager(
             .setShowWhen(true)
             .setWhen(System.currentTimeMillis())
 
-        notificationManager.notify((System.currentTimeMillis() and 0x7FFFFFFF).toInt(), builder.build())
+        postNotification((System.currentTimeMillis() and 0x7FFFFFFF).toInt(), builder.build())
     }
 
     private fun showNotificationForActivePeers(peersSize: Int) {
@@ -343,7 +351,7 @@ class NotificationManager(
           .setShowWhen(true)
           .setWhen(System.currentTimeMillis())
 
-        notificationManager.notify(ACTIVE_PEERS_NOTIFICATION_ID, builder.build())
+        postNotification(ACTIVE_PEERS_NOTIFICATION_ID, builder.build())
         Log.d(TAG, "Displayed notification for $contentTitle with ID $ACTIVE_PEERS_NOTIFICATION_ID")
     }
     private fun showSummaryNotification() {
@@ -395,7 +403,7 @@ class NotificationManager(
         
         builder.setStyle(style)
 
-        notificationManager.notify(SUMMARY_NOTIFICATION_ID, builder.build())
+        postNotification(SUMMARY_NOTIFICATION_ID, builder.build())
 
         Log.d(TAG, "Displayed summary notification for $senderCount senders")
     }
@@ -552,7 +560,7 @@ class NotificationManager(
 
         // Use geohash hash as notification ID to group messages from same geohash
         val notificationId = 3000 + geohash.hashCode()
-        notificationManager.notify(notificationId, builder.build())
+        postNotification(notificationId, builder.build())
 
         Log.d(TAG, "Displayed geohash notification for $contentTitle with ID $notificationId")
     }
@@ -619,7 +627,7 @@ class NotificationManager(
 
         builder.setStyle(style)
 
-        notificationManager.notify(GEOHASH_SUMMARY_NOTIFICATION_ID, builder.build())
+        postNotification(GEOHASH_SUMMARY_NOTIFICATION_ID, builder.build())
 
         Log.d(TAG, "Displayed geohash summary notification for $geohashCount locations")
     }
@@ -760,7 +768,7 @@ class NotificationManager(
 
         // Use a special notification ID for mesh mentions
         val notificationId = 4000 // Different from DM and geohash IDs
-        notificationManager.notify(notificationId, builder.build())
+        postNotification(notificationId, builder.build())
 
         Log.d(TAG, "Displayed mesh mention notification: $contentTitle")
     }

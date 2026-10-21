@@ -24,7 +24,7 @@ object AppShareUtils {
                 val originalApk = File(apkPath)
 
                 // 2. Define the destination file in cacheDir
-                val copiedApk = File(context.cacheDir, "outpost-offline.apk")
+                val copiedApk = File(File(context.cacheDir, "shared_apks").apply { mkdirs() }, "outpost-offline.apk")
 
                 // 3. Copy the APK to ensure FileProvider has seamless access
                 FileInputStream(originalApk).use { input ->
@@ -48,7 +48,7 @@ object AppShareUtils {
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     }
 
-                    val chooserIntent = Intent.createChooser(shareIntent, "Share Bitchat Offline")
+                    val chooserIntent = Intent.createChooser(shareIntent, "Share Outpost offline")
                     chooserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     context.startActivity(chooserIntent)
                 }

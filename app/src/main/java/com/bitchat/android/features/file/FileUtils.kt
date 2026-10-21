@@ -15,6 +15,39 @@ object FileUtils {
 
     private const val TAG = "FileUtils"
 
+    /** Remove abandoned preparations and evicted attachments after a grace period for in-flight work. */
+    fun pruneUnreferencedMedia(context: Context, retained: Set<String>, nowMs: Long = System.currentTimeMillis()): Int {
+        val cutoff = nowMs - 24L * 60 * 60 * 1000
+        var removed = 0
+        for (base in listOf(context.filesDir, context.cacheDir)) {
+            for (name in listOf("files", "images", "voicenotes")) {
+                val root = File(base, name).canonicalFile
+                val prefix = root.path + File.separator
+                if (!root.isDirectory) continue
+                root.walkTopDown().onEnter { it.canonicalPath == root.path || it.canonicalPath.startsWith(prefix) }
+                    .filter { it.isFile && it.lastModified() < cutoff }.forEach { file ->
+                        val canonical = file.canonicalPath
+                        if (canonical.startsWith(prefix) && file.path !in retained && canonical !in retained && file.delete()) removed++
+                    }
+            }
+        }
+        return removed
+    }
+
+    /** Delete only app-owned media, and keep files still referenced by another conversation. */
+    fun deleteMessageFiles(context: Context, messages: List<com.bitchat.android.model.BitchatMessage>, retained: Set<String>) {
+        val roots = listOf(context.filesDir, context.cacheDir).flatMap { root ->
+            listOf("files", "images", "voicenotes").map { File(root, it).canonicalPath + File.separator }
+        }
+        messages.filter { it.type != com.bitchat.android.model.BitchatMessageType.Message }
+            .map { it.content }.distinct().filterNot { it in retained }.forEach { path ->
+                val file = File(path).canonicalFile
+                if (roots.any { file.path.startsWith(it) } && file.isFile) {
+                    check(file.delete()) { "Could not delete attachment" }
+                }
+            }
+    }
+
     /**
      * Save a file from URI to app's file directory with unique filename
      */
@@ -61,67 +94,33 @@ object FileUtils {
      * Copy file to app's outgoing directory for sending
      */
     fun copyFileForSending(context: Context, uri: Uri, originalName: String? = null): String? {
-        Log.d(TAG, "🔄 Starting file copy from URI: $uri")
+        var target: File? = null
         return try {
-            val inputStream = context.contentResolver.openInputStream(uri)
-            if (inputStream == null) {
-                Log.e(TAG, "❌ Failed to open input stream for URI: $uri")
-                return null
-            }
-            Log.d(TAG, "📂 Opened input stream successfully")
-
-            // Determine original filename and extension if available
-            val displayName = originalName ?: run {
-                try {
-                    context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-                        val nameIndex = cursor.getColumnIndex(android.provider.MediaStore.MediaColumns.DISPLAY_NAME)
-                        if (nameIndex >= 0 && cursor.moveToFirst()) cursor.getString(nameIndex) else null
-                    }
-                } catch (_: Exception) { null }
-            }
-            val extension = displayName?.substringAfterLast('.', missingDelimiterValue = "")?.takeIf { it.isNotBlank() }
-                ?: run {
-                    // Try mime type to extension
-                    val mime = try { context.contentResolver.getType(uri) } catch (_: Exception) { null }
-                    android.webkit.MimeTypeMap.getSingleton().getExtensionFromMimeType(mime) ?: "bin"
+            val displayName = originalName ?: context.contentResolver.query(uri,
+                arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) cursor.getString(0) else null
+            } ?: "file.bin"
+            val base = displayName.substringBeforeLast('.', displayName).take(64)
+                .replace(Regex("[^A-Za-z0-9._-]"), "_").takeIf { it.isNotBlank() } ?: "file"
+            val ext = displayName.substringAfterLast('.', "bin").filter { it.isLetterOrDigit() }.take(12).ifEmpty { "bin" }
+            val dir = File(context.filesDir, "files/outgoing").apply { check(isDirectory || mkdirs()) }
+            target = File.createTempFile("${base}_".padEnd(3, '_'), ".$ext", dir)
+            val input = context.contentResolver.openInputStream(uri) ?: error("Cannot open file")
+            input.use { source -> target.outputStream().use { output ->
+                val buffer = ByteArray(8192)
+                var total = 0L
+                while (true) {
+                    val count = source.read(buffer)
+                    if (count < 0) break
+                    total += count
+                    check(total <= com.bitchat.android.util.AppConstants.Media.MAX_FILE_SIZE_BYTES) { "File too large" }
+                    output.write(buffer, 0, count)
                 }
-            // Preserve original filename (without artificial prefixes), ensure uniqueness
-            val baseName = displayName?.substringBeforeLast('.')?.take(64)?.replace(Regex("[^A-Za-z0-9._-]"), "_")
-                ?: "file"
-            var fileName = if (extension.isNotBlank()) "$baseName.$extension" else baseName
-
-            // Create outgoing dir if needed
-            val outgoingDir = File(context.filesDir, "files/outgoing").apply {
-                if (!exists()) mkdirs()
-            }
-
-            var target = File(outgoingDir, fileName)
-            if (target.exists()) {
-                var idx = 1
-                val pureBase = baseName
-                val dotExt = if (extension.isNotBlank()) ".${extension}" else ""
-                while (target.exists() && idx < 1000) {
-                    fileName = "$pureBase ($idx)$dotExt"
-                    target = File(outgoingDir, fileName)
-                    idx++
-                }
-            }
-
-            inputStream.use { input ->
-                FileOutputStream(target).use { output ->
-                    input.copyTo(output)
-                }
-            }
-
-            Log.d(TAG, "✅ Successfully copied file for sending: ${target.absolutePath}")
-            Log.d(TAG, "📊 Final file size: ${target.length()} bytes")
+            } }
             target.absolutePath
-
         } catch (e: Exception) {
-            Log.e(TAG, "❌ CRITICAL: Failed to copy file for sending", e)
-            Log.e(TAG, "❌ Source URI: $uri")
-            Log.e(TAG, "❌ Original name: $originalName")
-            Log.e(TAG, "❌ Error type: ${e.javaClass.simpleName}")
+            target?.delete()
+            Log.w(TAG, "Could not attach selected file", e)
             null
         }
     }
@@ -195,71 +194,20 @@ object FileUtils {
         context: Context,
         file: com.bitchat.android.model.BitchatFilePacket
     ): String {
-        val lowerMime = file.mimeType.lowercase()
-        val isImage = lowerMime.startsWith("image/")
-        // FIX: Use cacheDir instead of filesDir to prevent storage exhaustion attacks (Issue #592)
-        // Files in cacheDir are eligible for automatic system cleanup when space is low
-        val baseDir = context.cacheDir
-        val subdir = if (isImage) "images/incoming" else "files/incoming"
-        val dir = java.io.File(baseDir, subdir).apply { mkdirs() }
-
-        fun extFromMime(m: String): String = when (m.lowercase()) {
-            "image/jpeg", "image/jpg" -> ".jpg"
-            "image/png" -> ".png"
-            "image/webp" -> ".webp"
-            "application/pdf" -> ".pdf"
-            "text/plain" -> ".txt"
-            else -> if (isImage) ".jpg" else ".bin"
-        }
-
-        // Prefer transmitted original name; ensure uniqueness to avoid overwrites
-        val baseName = (file.fileName.takeIf { it.isNotBlank() }
-            ?: (if (isImage) "img" else "file"))
-            .replace(Regex("[^A-Za-z0-9._-]"), "_")
-        val ext = extFromMime(lowerMime)
-        var safeName = if (baseName.contains('.')) baseName else baseName + ext
-        var idx = 1
-        while (java.io.File(dir, safeName).exists() && idx < 1000) {
-            val dot = safeName.lastIndexOf('.')
-            safeName = if (dot > 0) {
-                val b = safeName.substring(0, dot)
-                val e = safeName.substring(dot)
-                "$b ($idx)$e"
-            } else {
-                "$safeName ($idx)"
-            }
-            idx++
-        }
-
-        return try {
-            val out = java.io.File(dir, safeName)
-            out.outputStream().use { it.write(file.content) }
-            out.absolutePath
-        } catch (_: Exception) {
-            // Fallback to cache dir with uniqueness
-            try {
-                var fallback = safeName
-                var idx2 = 1
-                while (java.io.File(context.cacheDir, fallback).exists() && idx2 < 1000) {
-                    val dot = fallback.lastIndexOf('.')
-                    fallback = if (dot > 0) {
-                        val b = fallback.substring(0, dot)
-                        val e = fallback.substring(dot)
-                        "$b ($idx2)$e"
-                    } else {
-                        "$fallback ($idx2)"
-                    }
-                    idx2++
-                }
-                val out = java.io.File(context.cacheDir, fallback)
-                out.outputStream().use { it.write(file.content) }
-                out.absolutePath
-            } catch (_: Exception) {
-                val tmp = java.io.File.createTempFile(if (isImage) "img_" else "file_", if (isImage) ".jpg" else ".bin")
-                tmp.writeBytes(file.content)
-                tmp.absolutePath
-            }
-        }
+        require(file.content.size <= com.bitchat.android.util.AppConstants.Media.MAX_FILE_SIZE_BYTES)
+        val mediaDirs = listOf("files", "images", "voicenotes").map { File(context.filesDir, it) }
+        val used = mediaDirs.sumOf { root -> if (root.exists()) root.walkTopDown().filter { it.isFile }.sumOf { it.length() } else 0L }
+        check(used + file.content.size <= 200L * 1024 * 1024) { "Attachment storage is full; clear an old chat" }
+        val isImage = file.mimeType.startsWith("image/", ignoreCase = true)
+        val dir = File(context.filesDir, if (isImage) "images/incoming" else "files/incoming")
+            .apply { check(isDirectory || mkdirs()) }
+        val safeName = file.fileName.take(100).replace(Regex("[^A-Za-z0-9._-]"), "_").trim('.')
+        val base = safeName.substringBeforeLast('.', safeName).ifBlank { "attachment" }
+        val extension = safeName.substringAfterLast('.', "bin").take(12).filter { it.isLetterOrDigit() }.ifBlank { "bin" }
+        val out = File.createTempFile("${base}_".padEnd(3, '_'), ".$extension", dir)
+        try { out.outputStream().use { it.write(file.content) } }
+        catch (e: Exception) { out.delete(); throw e }
+        return out.absolutePath
     }
 
     /**

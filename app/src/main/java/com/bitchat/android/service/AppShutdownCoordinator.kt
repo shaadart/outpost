@@ -63,8 +63,8 @@ object AppShutdownCoordinator {
                 try { torProvider.applyMode(app, TorMode.OFF) } catch (_: Exception) { }
             }
 
-            // Clear AppState in-memory store
-            try { com.bitchat.android.services.AppStateStore.clear() } catch (_: Exception) { }
+            // Flush encrypted history before the process exits
+            try { com.bitchat.android.services.AppStateStore.flushHistory() } catch (_: Exception) { }
 
             // Stop foreground and clear notification
             try { stopForeground() } catch (_: Exception) { }

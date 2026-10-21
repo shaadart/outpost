@@ -112,10 +112,10 @@ class UnifiedMeshService(
         }
     }
 
-    override fun sendFileBroadcast(file: BitchatFilePacket) {
+    override fun sendFileBroadcast(file: BitchatFilePacket, channel: String?) {
         when {
-            isBleEnabled() -> bluetooth.sendFileBroadcast(file)
-            else -> wifiService()?.sendFileBroadcast(file)
+            isBleEnabled() -> bluetooth.sendFileBroadcast(file, channel)
+            else -> wifiService()?.sendFileBroadcast(file, channel)
         }
     }
 

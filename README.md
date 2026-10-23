@@ -1,11 +1,10 @@
 # Purpose
 
-**The right to speak should survive a lost signal.**
+**We want people to stay in touch when the internet goes down.**
 
-Outpost is for secrets between friends, people finding each other at protests, or a casual space to meet ppl
+To find a friend at a protest. Share a secret. Or say hello to someone nearby.
 
-Built on BitChat, it gives nearby messaging a familiar home on Android. No phone number. No email. Your profile begins on your device.
-
+That’s why we’re building Outpost on BitChat, using the radios already in our phones. No phone number or email needed.
 
 ## How
 
@@ -27,7 +26,7 @@ Participating phones can carry messages through the mesh without mobile data or 
 <a href="docs/images/chat-demo.png"><img src="docs/images/chat-demo.png" width="160" alt="Labeled Outpost demo showing messages between Alex and Maya"></a>
 <a href="docs/images/erase.png"><img src="docs/images/erase.png" width="160" alt="Outpost account erasure confirmation explaining what is removed"></a>
 
-Captured in an Android emulator. Screens marked DEMO use sample contacts and messages. Tap to enlarge.
+Captured in an Android emulator. contacts and messages. Tap to enlarge.
 
 ### Know the limits
 

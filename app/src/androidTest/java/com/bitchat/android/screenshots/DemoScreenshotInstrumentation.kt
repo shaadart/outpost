@@ -9,12 +9,12 @@ import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.bitchat.android.MainActivity
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.service.MeshServiceHolder
@@ -79,7 +79,8 @@ class DemoScreenshotInstrumentation : Instrumentation() {
                         Column(Modifier.fillMaxSize().background(Color(0xFF0B0F14)).statusBarsPadding()) {
                             Box(Modifier.fillMaxWidth().background(Color(0xFF1E3A5F)).padding(8.dp),
                                 contentAlignment = Alignment.Center) {
-                                Text("DEMO · sample people and messages", color = Color.White, fontSize = 12.sp)
+                                Text("DEMO · sample people and messages", color = Color.White,
+                                    style = MaterialTheme.typography.labelSmall)
                             }
                             Box(Modifier.weight(1f)) { ChatScreen(model) }
                         }

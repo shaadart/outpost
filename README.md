@@ -1,41 +1,39 @@
 # Purpose
 
-**The people beside you are still there when the network is gone.**
+**The right to speak should survive a lost signal.**
 
-Outpost is a nearby messenger for Android, built on BitChat. It brings familiar conversations to the radios already in our pockets, without asking for a phone number or email address.
+Outpost is for secrets between friends, people finding each other at protests, or a casual space to meet ppl
 
-Sometimes, “Did you bring snacks?” should only have to travel across the park.
+Built on BitChat, it gives nearby messaging a familiar home on Android. No phone number. No email. Your profile begins on your device.
+
 
 ## How
 
-1. **Choose a name.** Your profile is created on your phone.
-2. **Turn on Bluetooth.** Allow the nearby connection permissions Android requests.
-3. **Find your people.** Start a private chat with someone nearby.
-4. **Make a group.** Share an invitation link or QR code with the people you want there.
+Choose a name, enable Bluetooth, and allow the nearby connection permissions. Find someone nearby and start a private chat. For a group, share an invitation link or QR code with the people you want there.
 
-Participating phones can pass messages onward through the mesh. Reach depends on nearby devices, distance, walls, batteries, and Android’s background rules.
+Participating phones can carry messages through the mesh without mobile data or WiFi. Reach depends on nearby devices, distance, walls, batteries, and Android’s background rules. An invitation alone cannot connect distant phones.
 
 ## What
 
-* Private conversations and invited groups.
+* Encrypted private conversations and invited groups.
 * Small photos, files, and short voice notes.
 * Encrypted text history kept on your phone.
 * Controls to clear a chat, leave a group, or erase your profile and app data from this device.
 
-### Inside the app
+### See it
 
 <a href="docs/images/profile.png"><img src="docs/images/profile.png" width="160" alt="Outpost profile creation screen"></a>
 <a href="docs/images/nearby-demo.png"><img src="docs/images/nearby-demo.png" width="160" alt="Labeled Outpost demo showing two sample nearby contacts"></a>
 <a href="docs/images/chat-demo.png"><img src="docs/images/chat-demo.png" width="160" alt="Labeled Outpost demo showing messages between Alex and Maya"></a>
 <a href="docs/images/erase.png"><img src="docs/images/erase.png" width="160" alt="Outpost account erasure confirmation explaining what is removed"></a>
 
-Screens captured in an Android emulator. The nearby contacts and conversation are clearly labeled samples, not a live Bluetooth exchange. Tap a screenshot to enlarge it.
+Captured in an Android emulator. Screens marked DEMO use sample contacts and messages. Tap to enlarge.
 
-### Yours to understand
+### Know the limits
 
-Nearby public chat is visible to the mesh. Anyone holding a group invitation can read, send, and invite others. Deletion affects your device; other people keep their copies.
+Public chat is visible to the mesh. Anyone with a group invitation can read, send, and invite others. Erasing removes app data from this device; other people’s copies and your exported files remain.
 
-This release candidate still needs physical Bluetooth delivery validation and release signing. Private text is limited to 255 encoded bytes and files to 96 KB. Invitations do not guarantee delivery to someone far away.
+**Release candidate.** Physical Bluetooth delivery still needs validation, and release signing is pending. There has been no independent security audit. Read the [validation report](docs/single-device-validation.md) before relying on it for sensitive conversations. Private text is limited to 255 encoded bytes and files to 96 KB.
 
 ### Try it
 
@@ -47,4 +45,4 @@ Requires Android 8 or newer with Bluetooth Low Energy. To build, use JDK 17 and 
 
 [Build and test](docs/development.md) · [Validation](docs/single-device-validation.md) · [About](ABOUT.md) · [License](LICENSE.md)
 
-Built with gratitude to BitChat and its contributors. Shared under GPLv3.
+Built on the work of BitChat and its contributors. Open source under GPLv3.

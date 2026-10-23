@@ -36,7 +36,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.set
@@ -141,7 +140,7 @@ fun ProfileSettingsSheet(
                 ) {
                     Text(
                         text = "QR Unavailable",
-                        fontSize = 12.sp,
+                        fontSize = MaterialTheme.typography.labelMedium.fontSize,
                         color = Color.Black.copy(alpha = 0.6f)
                     )
                 }
@@ -220,7 +219,7 @@ fun ProfileSettingsSheet(
                 Text(
                     text = "Scan Friend's QR Code",
                     fontWeight = FontWeight.SemiBold,
-                    fontSize = 14.sp
+                    fontSize = MaterialTheme.typography.bodyMedium.fontSize
                 )
             }
 
@@ -336,7 +335,7 @@ private fun ScannerView(
                     Text(
                         text = "Camera permission required",
                         color = Color.White.copy(alpha = 0.7f),
-                        fontSize = 14.sp
+                        fontSize = MaterialTheme.typography.bodyMedium.fontSize
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Button(

@@ -188,14 +188,14 @@ fun MessageItem(
                             Text(
                                 text = com.bitchat.android.ui.splitSuffix(message.sender).first,
                                 color = Color(0xFF60A5FA),
-                                fontSize = 12.sp,
+                                fontSize = MaterialTheme.typography.labelMedium.fontSize,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(bottom = 2.dp)
                             )
                         }
                         if (isOfficial && message.isVerified) {
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 2.dp)) {
-                                Text(text = "📢 Official Updates", color = Color(0xFF60A5FA), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text(text = "📢 Official Updates", color = Color(0xFF60A5FA), fontSize = MaterialTheme.typography.labelMedium.fontSize, fontWeight = FontWeight.Bold)
                             }
                         }
                         // Create a custom layout that combines selectable text with clickable nickname areas
@@ -495,7 +495,7 @@ fun MessageItem(
             
             softWrap = true,
             overflow = TextOverflow.Visible,
-            style = androidx.compose.ui.text.TextStyle(
+            style = MaterialTheme.typography.bodyMedium.copy(
                 color = Color(0xFFF3F4F6)
             ),
             onTextLayout = { result -> textLayoutResult = result }
@@ -511,7 +511,7 @@ fun DeliveryStatusIcon(status: DeliveryStatus) {
         is DeliveryStatus.Sending -> {
             Text(
                 text = stringResource(R.string.status_sending),
-                fontSize = 10.sp,
+                fontSize = MaterialTheme.typography.labelSmall.fontSize,
                 color = colorScheme.primary.copy(alpha = 0.6f)
             )
         }
@@ -519,7 +519,7 @@ fun DeliveryStatusIcon(status: DeliveryStatus) {
             // Use a subtle hollow marker for Sent; single check is reserved for Delivered (iOS parity)
             Text(
                 text = stringResource(R.string.status_pending),
-                fontSize = 10.sp,
+                fontSize = MaterialTheme.typography.labelSmall.fontSize,
                 color = colorScheme.primary.copy(alpha = 0.6f)
             )
         }
@@ -527,14 +527,14 @@ fun DeliveryStatusIcon(status: DeliveryStatus) {
             // Single check for Delivered (matches iOS expectations)
             Text(
                 text = stringResource(R.string.status_sent),
-                fontSize = 10.sp,
+                fontSize = MaterialTheme.typography.labelSmall.fontSize,
                 color = colorScheme.primary.copy(alpha = 0.8f)
             )
         }
         is DeliveryStatus.Read -> {
             Text(
                 text = stringResource(R.string.status_delivered),
-                fontSize = 10.sp,
+                fontSize = MaterialTheme.typography.labelSmall.fontSize,
                 color = Color(0xFF007AFF), // Blue
                 fontWeight = FontWeight.Bold
             )
@@ -542,7 +542,7 @@ fun DeliveryStatusIcon(status: DeliveryStatus) {
         is DeliveryStatus.Failed -> {
             Text(
                 text = stringResource(R.string.status_failed),
-                fontSize = 10.sp,
+                fontSize = MaterialTheme.typography.labelSmall.fontSize,
                 color = Color.Red.copy(alpha = 0.8f)
             )
         }
@@ -550,7 +550,7 @@ fun DeliveryStatusIcon(status: DeliveryStatus) {
             // Show a single subdued check without numeric label
             Text(
                 text = stringResource(R.string.status_sent),
-                fontSize = 10.sp,
+                fontSize = MaterialTheme.typography.labelSmall.fontSize,
                 color = colorScheme.primary.copy(alpha = 0.6f)
             )
         }

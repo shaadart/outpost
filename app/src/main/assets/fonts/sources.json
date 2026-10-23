@@ -1,0 +1,42 @@
+[
+  {
+    "file": "app/src/main/res/font/geist_pixel_square.ttf",
+    "source": "https://raw.githubusercontent.com/vercel/geist-font/d1d9ce6e929a35f0e24b7cd10573f17db58196a0/fonts/GeistPixel/ttf/GeistPixel-Square.ttf",
+    "bytes": 94764,
+    "sha256": "c1fbf7316997c1749857708998958e8ca0343416b3f8d2c7156d634a9520e997"
+  },
+  {
+    "file": "app/src/main/res/font/bytesized_regular.ttf",
+    "source": "https://raw.githubusercontent.com/google/fonts/45e3d5269e4a17d823f6d84470bc084dc5ae46f6/ofl/bytesized/Bytesized-Regular.ttf",
+    "bytes": 20792,
+    "sha256": "867b090a29cf5b45378692d3163439bb51875a3ddf4e37dcabf62030d04f1d51"
+  },
+  {
+    "file": "app/src/main/assets/fonts/geist_pixel_OFL.txt",
+    "source": "https://raw.githubusercontent.com/vercel/geist-font/d1d9ce6e929a35f0e24b7cd10573f17db58196a0/OFL.txt",
+    "bytes": 4383,
+    "sha256": "c683bfbcc7e087f5d37a54ef628f10387c451a83ddc459b151403a164ac46c90"
+  },
+  {
+    "file": "app/src/main/assets/fonts/bytesized_OFL.txt",
+    "source": "https://raw.githubusercontent.com/google/fonts/45e3d5269e4a17d823f6d84470bc084dc5ae46f6/ofl/bytesized/OFL.txt",
+    "bytes": 4485,
+    "sha256": "5f1150f1ed33740aa5549f68f4bbbfd5d61b9bab8a5502d03349a08714765e46"
+  },
+  {
+    "file": "app/src/main/assets/fonts/dongle_OFL.txt",
+    "source": "https://raw.githubusercontent.com/google/fonts/45e3d5269e4a17d823f6d84470bc084dc5ae46f6/ofl/dongle/OFL.txt",
+    "bytes": 4386,
+    "sha256": "f9e59049e824264bffd626d0901cfcaac9d5ba756988b904d3e3e0e233493607"
+  },
+  {
+    "file": "dongle_regular.ttf",
+    "source": "https://fonts.gstatic.com/l/font?kit=sJoF3Ltdjt6VPkqmvfy0ZT-o51npGH8tH7A9_hJi3fTwW3reQsCt_A3z3582mvGAzuKfRzKF4eehWLU444AWF02pTdwIgYbrvaOsNjzqVpYFNTDrOhQ1XZuw1PE755K_SbZWGJZD-PEQ0ToSNyRiH4AnCzsJ1ulP_yB80JnrFy503kNM1F3Cw7kW9QNjZ8ZaN6FRpwnpJD-XhcKOu8HWV9LVSWqz5BDMDxx8HPAElMqNXBSBc0kj8mAT5gvdisXHcApxEINrMmTP5d1EYIJroFz57cFU2-HophcN0nTJEtWzvK9U2e8sJ32EcOMLtX128ID0SL62IthscPiw1vaioSs4lScyDvXISoO4LQOf9qamH0k3gbXxU9jm_6KnvRP-Bl3AvHd2_6xI7X5UUxHDJvnSsqmi0j1EXH4scw6o13R4P7Nv1tXIPV4FZ48XMJdeALE3xVGOksYLW8h5SPkeMsPALhP0NYEEaJOiSbTt2HC8dMa__U2OjdgUoTkx0FfxUeQe7QKk4AbT28joh0znQicJB5z7Tlw3yvpe8rXF67M6xjL7lLwuX6-wNXpQvqgTUqflQEo4OTeyZ7Y-voy5FNR6zdVK3oci63xMWECkn4FsO7u8ZbFuw93xH4vBAEnF7nREabcdIN4mkKEGvtU6Q6P8SgXvRt0sb6mV3JWN6RiO9yPRzuhWP46sPZrm5YhIN472dMxa-74PsIMRnZu-qSYRfBGS6DRZ039ISWBR2WpvFtw7TLLuwURnL0OAswD-nWh9PeIauScwSp9PDdlGk-0mscmKFh1z_FuF76lZczgVPBBert_WiEo87Olqv4N6xHV52diLQ6SPp6JN8ty5ssntIGMD0Qgmaf3D6p9s-FbDKaoWMk9Y5fkwfF8vIN2DDujQG1iUkAoP5jDakEKzaYM8sRp0sbqULxFfqag3ssMz58ALRAwcBRZwsG3riCAvAVPeKpZymLzuP2Pvt-O0i_v6NsPGxw7xr6ZOXr7CE1CcqC-sSkmLc0RfFuphgSobD3_GPhxjY_kaaJ-x-r0FSXIsRpdV1Dl5L4iGGQIIrD19iA5bTorZnAsD0QDxozM7sHUgSInRQRcYDuCtXBH5QGmKyZ74BOtfStJn6G8xAE1FxydbRGxqCiYbsuxzahAOBJXtaCQ-m94FV_e6Tf9JB86mdf741SIvkwHRk19w5_BCyyJvqjedkzR1HKDyVf-cAnG6oN8WxYKsJQ0KOca3Q2l6I-KEfvKnM-b6JVDbLEvtIQzTCjzTgXWwK-bo22K9SWpX5A2tkmXNv1bBrNvgsUfxTiCzvH8hSoa3Ek8AOXhaLDBJpEEymB-xXMi_tAlnITB6SoD6eQjj4vPfI7KWuJ9nA-YvUfRChsyFSf2njA&skey=c9b3dcc092b9a461&v=v16",
+    "sha256": "fb6aa6fc3b3316eb1c9bdeb65f2aa25056ed6098dac6334754998791e2d85bf1"
+  },
+  {
+    "file": "dongle_bold.ttf",
+    "source": "https://fonts.gstatic.com/l/font?kit=sJoG3Ltdjt6VPkqeActrYi12wlrsH3ouEr8w_Rdl2PftRGfdR8eo_wD80pwznfSDs53iRDeC5OSsV7g75ocTFFC2UN8NhoPosKyhNTntU5U4Cg3oPxMwXpa_2fI-4Je8VKlLG5NE_fId3jcRMiNnoV2baFlptYgvmUEbtv2MckoeuygmvDarq9d_mm0PCKs2Rcwi1XmaVU_h9LX4z7ajI6igMhDLn2m0cWUDYox76bfPIFbCMgtjsydToEyYzIGCO047W8ohei2ArZMLLcwn7Q-1v5IFibG58UdbhSGfRoDo6PUPgLV0fiLcLrxW6yErk9yWK9_UQrkLEJ7Xs5DGxEBc_0xbZJ2hJevWQm7xmsvVcztE8MeBIq-WidXSy2eLfSm6xw4Mh9U3lQArLm-_XLqp9-3kl3oCHDltM0zplDY0fP4jmJiHcxZKLsddedwUVPpikQfbxZBbDJkpGqhNYJ-Tc0-qaN5aMMz7Ee60gyrYL6Pbmyjp67hzwFlTsTSTPYdzgWzJj2i7tKGA7SWMKFNicuiNOytBuo0vgse0mMFGtU-H6sFRIdfPTAIqx9NoFt2hBQ18f3DzIfZ__cz7V5k4gZgFksltojIEEQvs1co5ce_pMuU4lIynT9qSUBuWsyYYNOhBfoF_zvlf5Y1gGMamLmCIIrtLDs_1vfbti3vjlU-8oYQ4UOfCVfONjeIjQuSCAbsujcl-xvNg7uvM2ltjAGztlEomqgEwMBspozYqKdw7TbLuwkRnLkOAtAD-nGh9PuIauCcwRZ9PDNlGkO0msMmKER1z_VuF7KlZcjgVIxBer9_Wi0o87elquIN6xXV52tiLQqSPqKJN89y5scntIWMD1ggmaP3D6Z9s-VbDFqoWM09Y5vkwfV8vJ92DD-jQGFiUkQoP6TDakUKzaoM8sBp0trqULhFfqqg3s8Mz-MALRQwcBhZwsW3rjyAvAFPeKZZymbzuMGPvtuO0iPv6N8PGwA7xrqZOXb7CElCdly-sS0mLcERfF-phhiobDn_GPRxjYvkaZ5-x-70FSnIsR5dV0zl5LoiGGgIIrT19lw5bT4rZnwsD0ADxpDM7sXUgS4nRQBcYAeCtXRH5Q2mKyJ74A-tfS9Jn628xAU1F-CdbRWxqCSYbs-xzbRAOBZXtayQ-mt4FWPe6TP9JBM6mdP740iIvkgHRkF9w5vBBxCJvqzedkDR1HaDyUv-cA3G6o98WxIKsKg0KOMa3QGl6IuKEefKnMub6JlDbLUvtPgzTCzzTgnWwKubo3GK9SGpX5w2tk2XNsFbBrdvgskfxTyCzu38hS4a3EU8AOHhbEzBJpUEymx-xXci_swlnIDB6SYD6eAjj7fPfIrKWu59nAuYvVvRCh8yFSv2njffUsw&skey=a083a6d696f7d5df&v=v16",
+    "sha256": "85e643b85ba49b391a70d64718413050af8d286df57db8df67eb467cf2274de3"
+  }
+]

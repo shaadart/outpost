@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.utils.singleOrTripleClickable
+import com.bitchat.android.ui.theme.OutpostTitleStyle
 
 @Composable
 fun MeshChatHeader(
@@ -32,6 +33,7 @@ fun MeshChatHeader(
         onBack: () -> Unit,
         onTripleShieldClick: () -> Unit,
         peerCount: Int = 0,
+        isAppTitle: Boolean = false,
         modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
@@ -54,9 +56,8 @@ fun MeshChatHeader(
                 }
                 Text(
                         text = title,
-                        style = MaterialTheme.typography.titleLarge,
+                        style = if (isAppTitle) OutpostTitleStyle else MaterialTheme.typography.titleLarge,
                         color = colorScheme.onSurface,
-                        fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                 )
@@ -105,8 +106,7 @@ fun NetworkHealthBadge(peerCount: Int = 0, modifier: Modifier = Modifier) {
                 text = "$peerCount Peers Nearby",
                 style = MaterialTheme.typography.bodySmall,
                 color = Color(0xFF60A5FA),
-                fontWeight = FontWeight.Medium,
-                fontSize = 13.sp
+                fontWeight = FontWeight.Medium
         )
     }
 }

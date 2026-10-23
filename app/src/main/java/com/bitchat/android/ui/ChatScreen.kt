@@ -110,7 +110,7 @@ fun ChatScreen(viewModel: ChatViewModel, initialGroupLink: String? = null, onGro
         topBar = {
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    MeshChatHeader(showBack = inChat, title = title, onBack = { closeChat() },
+                    MeshChatHeader(showBack = inChat, title = title, isAppTitle = !inChat, onBack = { closeChat() },
                         onTripleShieldClick = { confirmWipe = true }, peerCount = peers.size,
                         modifier = Modifier.weight(1f))
                     Box {
@@ -187,10 +187,10 @@ fun ChatScreen(viewModel: ChatViewModel, initialGroupLink: String? = null, onGro
                 LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 88.dp)) {
                     item("nearby") {
                         historyError?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) }
-                        ListItem(headlineContent = { Text("People nearby") },
+                        ListItem(headlineContent = { Text("People nearby", style = MaterialTheme.typography.titleMedium) },
                             supportingContent = { Text(if (peers.isEmpty()) "Keep Bluetooth on to discover people" else "${peers.size} people available to chat") },
                             modifier = Modifier.clickable { showPeople = true })
-                        ListItem(headlineContent = { Text("Nearby chat") },
+                        ListItem(headlineContent = { Text("Nearby chat", style = MaterialTheme.typography.titleMedium) },
                             supportingContent = { Text("Public conversation with the local mesh") },
                             modifier = Modifier.clickable { closeChat(); publicChatOpen = true })
                         HorizontalDivider()
@@ -201,7 +201,7 @@ fun ChatScreen(viewModel: ChatViewModel, initialGroupLink: String? = null, onGro
                     }
                     items(sorted, key = { if (it.isPrivate) "private:${it.id}" else "group:${it.id}" }) { item ->
                         ListItem(
-                            headlineContent = { Text(item.title, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                            headlineContent = { Text(item.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                             supportingContent = { Text(item.messages.lastOrNull()?.let(::messagePreview) ?: "No messages yet", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                             trailingContent = {
                                 Column(horizontalAlignment = Alignment.End) {
@@ -248,7 +248,7 @@ fun ChatScreen(viewModel: ChatViewModel, initialGroupLink: String? = null, onGro
             LazyColumn {
                 if (peers.isEmpty()) item { Text("No one nearby yet. Both devices need Outpost open with Bluetooth and nearby permissions enabled.") }
                 items(peers, key = { it }) { peer ->
-                    ListItem(headlineContent = { Text(peerNames[peer] ?: peer) },
+                    ListItem(headlineContent = { Text(peerNames[peer] ?: peer, style = MaterialTheme.typography.titleMedium) },
                         modifier = Modifier.clickable { showPeople = false; openPrivate(peer) })
                 }
             }

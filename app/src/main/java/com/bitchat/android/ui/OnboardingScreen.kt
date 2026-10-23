@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bitchat.android.ui.theme.OutpostTitleStyle
 
 @Composable
 fun OnboardingScreen(onComplete: (String) -> Unit) {
@@ -29,8 +30,7 @@ fun OnboardingScreen(onComplete: (String) -> Unit) {
         ) {
             Text(
                     text = "Outpost",
-                    style = MaterialTheme.typography.headlineLarge,
-                    fontWeight = FontWeight.Bold,
+                    style = OutpostTitleStyle.copy(fontSize = 36.sp, lineHeight = 44.sp),
                     color = Color(0xFF3B82F6)
             )
 
@@ -107,7 +107,7 @@ fun OnboardingScreen(onComplete: (String) -> Unit) {
                             ),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth().height(52.dp)
-            ) { Text(text = "Create profile", fontWeight = FontWeight.SemiBold, fontSize = 16.sp) }
+            ) { Text(text = "Create profile", style = MaterialTheme.typography.labelLarge) }
         }
     }
 }
